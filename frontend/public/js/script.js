@@ -686,7 +686,7 @@ function renderTopProducts(products) {
         const details = document.createElement('div');
         details.className = 'product-details';
         const name = document.createElement('strong');
-        name.textContent = product._id;
+        name.textContent = product.productName || product._id;
         const units = document.createElement('span');
         units.textContent = `${product.units} ${product.units === 1 ? 'unit' : 'units'} sold`;
         details.append(name, units);

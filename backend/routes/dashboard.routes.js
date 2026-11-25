@@ -52,7 +52,8 @@ async function aggregateSalesInsights(userId, range) {
             ],
             topProducts: [
                 { $group: {
-                    _id: '$product',
+                    _id: { $toLower: { $trim: { input: '$product' } } },
+                    productName: { $first: '$product' },
                     units: { $sum: '$quantity' },
                     revenue: { $sum: '$amount' },
                 } },
@@ -100,12 +101,13 @@ router.get('/dashboard', async (req, res) => {
 });
 
 router.get('/daily-briefing', async (req, res) => {
-    const dayKey = new Intl.DateTimeFormat('en-CA', {
+    const localDay = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Kolkata',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
     }).format(new Date());
+    const dayKey = `${localDay}-case-insensitive-products-v1`;
     const refresh = req.query.refresh === '1';
 
     try {
@@ -138,7 +140,7 @@ router.get('/daily-briefing', async (req, res) => {
                 period: RANGE_LABELS['7d'],
                 ...insights.summary,
                 topProducts: insights.topProducts.map((product) => ({
-                    product: product._id,
+                    product: product.productName || product._id,
                     units: product.units,
                     revenue: product.revenue,
                 })),
@@ -262,7 +264,7 @@ router.post('/ask-ai', async (req, res) => {
             period: RANGE_LABELS[range],
             ...insights.summary,
             topProducts: insights.topProducts.map((product) => ({
-                product: product._id,
+                product: product.productName || product._id,
                 units: product.units,
                 revenue: product.revenue,
             })),
