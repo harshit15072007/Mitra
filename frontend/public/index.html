@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mitra | AI Merchant Copilot</title>
+    <link rel="stylesheet" href="css/style.css?v=overview-footer-1">
+</head>
+<body>
+    <div id="site-intro" class="intro-screen" aria-hidden="true">
+        <div class="intro-content">
+            <p class="intro-kicker">YOUR AI MERCHANT COPILOT</p>
+            <h1 class="intro-title" data-title="Mitra">Mitra</h1>
+            <p class="intro-tagline">Your business, understood.</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <header class="site-header">
+            <div class="brand-group">
+                <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+                    <defs>
+                        <linearGradient id="mitra-mark-gradient" x1="4" y1="4" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#5689f5" />
+                            <stop offset="1" stop-color="#17a98c" />
+                        </linearGradient>
+                    </defs>
+                    <rect x="1" y="1" width="38" height="38" rx="12" fill="url(#mitra-mark-gradient)" />
+                    <path d="M9 27V14l7 8 7-8v13" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.8" />
+                    <path d="m23 25 4-4 3 2 4-6" fill="none" stroke="#b9ffe9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" />
+                    <circle cx="34" cy="16" r="1.6" fill="#fff" />
+                </svg>
+                <a class="brand" href="/" aria-label="Mitra home">Mitra<span>.</span></a>
+            </div>
+            <div class="header-actions">
+                <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to light theme" aria-pressed="true" title="Switch to light theme">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path class="moon-shape" d="M20.9 13.1A8.9 8.9 0 0 1 10.9 3.1 9 9 0 1 0 20.9 13.1Z"/></svg>
+                </button>
+                <div id="notification-menu" class="notification-menu" hidden>
+                    <button id="notification-bell" class="notification-bell" type="button" aria-label="Notifications" aria-expanded="false" aria-controls="notifications-panel">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+                        <span id="notification-count" class="notification-count" hidden>0</span>
+                    </button>
+                    <section id="notifications-panel" class="notifications-panel" aria-label="Notifications" hidden>
+                        <div class="notifications-heading"><div><strong>Notifications</strong><span id="notification-summary">Your latest inventory updates</span></div><button id="mark-notifications-read" type="button">Mark all read</button></div>
+                        <div id="notification-list" class="notification-list"></div>
+                    </section>
+                </div>
+                <button id="open-auth-button" type="button" class="header-signin">Sign in</button>
+                <div class="account-identity" hidden>
+                    <div class="account-menu">
+                        <button id="account-menu-trigger" type="button" class="account-logo" aria-label="Open account menu" aria-expanded="false" aria-controls="account-dropdown">M</button>
+                        <div id="account-dropdown" class="account-dropdown" hidden>
+                            <button id="edit-business-profile" type="button">Business type</button>
+                            <button id="logout-button" type="button">Sign out</button>
+                        </div>
+                    </div>
+                    <strong id="account-name"></strong>
+                </div>
+            </div>
+        </header>
+
+        <section id="landing-panel" class="landing-panel">
+            <svg class="hero-motion" viewBox="0 0 1100 620" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                    <linearGradient id="motion-line-gradient" x1="0" x2="1" y1="0" y2="0">
+                        <stop offset="0" stop-color="#42bd9a" stop-opacity="0" />
+                        <stop offset="0.42" stop-color="#4b88f5" stop-opacity="0.45" />
+                        <stop offset="1" stop-color="#42bd9a" stop-opacity="0.75" />
+                    </linearGradient>
+                </defs>
+                <path class="motion-grid-line" d="M0 470H1100 M0 520H1100 M660 80V620 M770 40V620 M880 0V620 M990 0V620" />
+                <path class="motion-trend-line" d="M0 430 C100 410 130 450 220 390 S360 430 450 350 S600 390 690 300 S830 335 920 230 S1030 250 1100 170" />
+            </svg>
+            <div class="hero-copy">
+                <p class="hero-eyebrow">YOUR BUSINESS, UNDERSTOOD</p>
+                <h1>Make every sale<br><span>count.</span></h1>
+                <p class="hero-description">A calmer way to track your sales and get practical guidance for your next move.</p>
+                <button id="hero-create-account" type="button" class="hero-cta">Get started <span aria-hidden="true">→</span></button>
+                <p id="landing-message" class="landing-message" role="status"></p>
+            </div>
+            <div class="hero-visual" aria-hidden="true">
+                <div class="visual-orbit orbit-one"></div>
+                <div class="visual-orbit orbit-two"></div>
+                <div class="visual-card">
+                    <div class="visual-card-top"><span class="visual-dot"></span><span>Business pulse</span><span class="visual-menu">•••</span></div>
+                    <div class="visual-caption">A little progress, every day.</div>
+                    <div class="visual-chart"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                    <div class="visual-card-bottom"><span>Sales overview</span><strong>↑ Growing</strong></div>
+                </div>
+                <div class="visual-sparkle sparkle-one">✦</div>
+                <div class="visual-sparkle sparkle-two">✧</div>
+            </div>
+        </section>
+
+        <div id="auth-modal" class="auth-backdrop" hidden>
+            <section class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+                <button id="close-auth-button" type="button" class="auth-close" aria-label="Close sign in">×</button>
+                <div class="auth-tabs">
+                    <button id="show-login" type="button" class="auth-tab is-active">Sign in</button>
+                    <button id="show-register" type="button" class="auth-tab">Create account</button>
+                </div>
+                <h2 id="auth-title">Welcome back</h2>
+                <p id="auth-intro" class="auth-intro">Sign in to pick up where you left off.</p>
+                <form id="login-form">
+                    <label for="login-email">Email</label>
+                    <input id="login-email" type="email" autocomplete="email" required>
+                    <label for="login-password">Password</label>
+                    <div class="password-field">
+                        <input id="login-password" type="password" autocomplete="current-password" required>
+                        <button type="button" class="password-toggle" data-password-target="login-password" aria-label="Show password" aria-pressed="false" title="Show password">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m4 4 16 16" hidden/></svg>
+                        </button>
+                    </div>
+                    <button type="submit" class="auth-submit">Sign in</button>
+                </form>
+                <form id="register-form" hidden>
+                    <label for="register-username">Username</label>
+                    <input id="register-username" type="text" autocomplete="username" minlength="2" maxlength="50" required>
+                    <label for="register-email">Email</label>
+                    <input id="register-email" type="email" autocomplete="email" required>
+                    <label for="register-profession">What kind of business do you run?</label>
+                    <input id="register-profession" type="text" list="business-types" minlength="2" maxlength="80" placeholder="e.g. Grocery store" autocomplete="organization-title" aria-describedby="profession-hint" required>
+                    <small id="profession-hint" class="field-hint">Mitra uses this to tailor business suggestions to you.</small>
+                    <label for="register-password">Password (at least 8 characters)</label>
+                    <div class="password-field">
+                        <input id="register-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+                        <button type="button" class="password-toggle" data-password-target="register-password" aria-label="Show password" aria-pressed="false" title="Show password">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m4 4 16 16" hidden/></svg>
+                        </button>
+                    </div>
+                    <button type="submit" class="auth-submit">Create account</button>
+                </form>
+                <datalist id="business-types">
+                    <option value="Electronics shop"></option>
+                    <option value="Grocery store"></option>
+                    <option value="Fashion and apparel"></option>
+                    <option value="Food and beverage"></option>
+                    <option value="Beauty and personal care"></option>
+                    <option value="Home and furniture"></option>
+                    <option value="Health and pharmacy"></option>
+                    <option value="Books and stationery"></option>
+                    <option value="Hardware and building supplies"></option>
+                    <option value="Online retail"></option>
+                    <option value="Professional services"></option>
+                    <option value="General retailer"></option>
+                </datalist>
+                <p id="auth-message" role="status"></p>
+            </section>
+        </div>
+
+        <div id="profile-modal" class="auth-backdrop" hidden>
+            <section class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+                <button id="close-profile-button" type="button" class="auth-close" aria-label="Close business profile">×</button>
+                <p class="page-eyebrow">PERSONALIZE MITRA</p>
+                <h2 id="profile-title">Your business type</h2>
+                <p class="auth-intro">Mitra uses this to make its recommendations relevant to your work.</p>
+                <form id="profile-form">
+                    <label for="profile-profession">What kind of business do you run?</label>
+                    <input id="profile-profession" type="text" list="business-types" minlength="2" maxlength="80" placeholder="e.g. Grocery store" required>
+                    <button type="submit" class="auth-submit">Save business type</button>
+                    <p id="profile-message" role="status"></p>
+                </form>
+            </section>
+        </div>
+
+        <main id="app-panel" class="app-shell" hidden>
+            <aside class="app-sidebar" aria-label="Main navigation">
+                <p class="sidebar-label">WORKSPACE</p>
+                <nav class="app-navigation">
+                    <button type="button" class="app-nav-item is-active" data-page-target="overview"><span aria-hidden="true">⌂</span>Overview</button>
+                    <button type="button" class="app-nav-item" data-page-target="sales"><span aria-hidden="true">↗</span>Sales</button>
+                    <button type="button" class="app-nav-item" data-page-target="inventory"><span aria-hidden="true">▤</span>Inventory</button>
+                    <button type="button" class="app-nav-item" data-page-target="copilot"><span aria-hidden="true">✧</span>AI Copilot</button>
+                </nav>
+                <div class="sidebar-note"><span class="status-indicator"></span><span>Your workspace<br><strong>Ready for business</strong></span></div>
+            </aside>
+            <div class="app-main">
+                <div class="app-toolbar">
+                    <div><p class="toolbar-eyebrow">MITRA WORKSPACE</p><p id="page-breadcrumb" class="toolbar-title">Overview</p></div>
+                    <label class="range-picker" for="insights-range">Period
+                        <select id="insights-range"><option value="7d">Last 7 days</option><option value="30d" selected>Last 30 days</option><option value="90d">Last 90 days</option><option value="all">All time</option></select>
+                    </label>
+                </div>
+                <p id="insights-message" class="insight-message" role="status" aria-live="polite"></p>
+                <section class="app-page" data-app-page="overview">
+                    <div class="page-intro"><p class="page-eyebrow">YOUR BUSINESS AT A GLANCE</p><h1>Business overview</h1><p>Track performance and spot what is moving your business.</p></div>
+                    <div class="dashboard">
+                        <div class="card"><span class="metric-label">Sales in period</span><h2 id="sales">₹0</h2><span class="metric-footnote">Revenue recorded</span></div>
+                        <div class="card"><span class="metric-label">Orders in period</span><h2 id="orders">0</h2><span class="metric-footnote">Completed sales</span></div>
+                        <div class="card"><span class="metric-label">Units sold</span><h2 id="products">0</h2><span class="metric-footnote">Items moved</span></div>
+                    </div>
+                    <div class="insights-grid">
+                        <section class="ai-section insight-card"><div class="insight-card-heading"><div><h2>Sales over time</h2><p id="trend-period-label">Daily sales</p></div></div><p id="chart-message" class="insight-message" role="status" aria-live="polite">Loading sales data…</p><svg id="sales-chart" class="sales-chart" viewBox="0 0 760 290" role="img" aria-label="Sales trend chart" hidden></svg></section>
+                        <section class="ai-section insight-card product-insight-card"><div class="insight-card-heading"><div><h2>Top products</h2><p>Ranked by revenue</p></div></div><ol id="top-products-list" class="top-products-list"></ol><p id="top-products-message" class="insight-message" role="status"></p></section>
+                    </div>
+                    <div class="overview-actions"><div><h2>Keep your numbers up to date</h2><p>Record a sale or ask Mitra to help you read the trends.</p></div><div><button type="button" class="secondary-button" data-page-target="sales">Add a sale</button><button type="button" class="primary-link-button" data-page-target="copilot">Ask the copilot <span aria-hidden="true">→</span></button></div></div>
+                    <footer class="overview-footer">
+                        <div class="overview-footer-brand"><strong>Mitra</strong><span>Your business, understood.</span></div>
+                        <p><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5 16 5v4.3c0 3.6-2.5 6.6-6 8.2-3.5-1.6-6-4.6-6-8.2V5l6-2.5Z"/><path d="m7.3 9.8 1.8 1.8 3.8-4"/></svg><span>Business data stays private</span></p>
+                    </footer>
+                </section>
+                <section class="app-page" data-app-page="sales" hidden>
+                    <div class="page-intro"><p class="page-eyebrow">REVENUE & ORDERS</p><h1>Sales</h1><p>Record transactions and review what you have sold.</p></div>
+                    <div class="dashboard sales-page-metrics"><div class="card"><span class="metric-label">Sales in period</span><h2 id="sales-page-total">₹0</h2><span class="metric-footnote">Revenue recorded</span></div><div class="card"><span class="metric-label">Orders in period</span><h2 id="sales-page-orders">0</h2><span class="metric-footnote">Completed sales</span></div><div class="card"><span class="metric-label">Units sold</span><h2 id="sales-page-units">0</h2><span class="metric-footnote">Items moved</span></div></div>
+                    <div class="sales-page-grid">
+                        <section class="ai-section page-card sale-entry-card"><div class="section-heading-row"><div><p class="page-eyebrow">NEW TRANSACTION</p><h2>Add a sale</h2><p>Enter the product and sale total to update your insights.</p></div></div><label for="product">Product name</label><input type="text" id="product" placeholder="e.g. Handmade notebook" required><div class="sale-form-row"><div><label for="quantity">Quantity</label><input type="number" id="quantity" min="1" step="1" placeholder="1" required></div><div><label for="amount">Total amount (₹)</label><input type="number" id="amount" min="0" step="0.01" placeholder="0.00" required></div></div><button type="button" class="auth-submit sale-submit" onclick="addSale()">Save sale <span aria-hidden="true">→</span></button><p id="message" role="status"></p></section>
+                        <section class="ai-section page-card sales-history"><div class="section-heading-row"><div><p class="page-eyebrow">LATEST ACTIVITY</p><h2>Recent sales</h2><p>Latest sales recorded for your account.</p></div><button id="refresh-sales" type="button" class="secondary-button">Refresh</button></div><p id="sales-history-message" role="status" aria-live="polite">Loading sales…</p><div class="sales-table-wrap"><table class="sales-table"><thead><tr><th>Date</th><th>Product</th><th>Qty</th><th>Amount</th></tr></thead><tbody id="sales-history-body"></tbody></table></div></section>
+                    </div>
+                </section>
+                <section class="app-page" data-app-page="inventory" hidden>
+                    <div class="page-intro"><p class="page-eyebrow">STOCK & REPLENISHMENT</p><h1>Inventory</h1><p>Keep quantities up to date. Mitra tracks sales and alerts you when an item needs a refill.</p></div>
+                    <div class="dashboard inventory-metrics"><div class="card"><span class="metric-label">Tracked items</span><h2 id="inventory-count">0</h2><span class="metric-footnote">Products in your inventory</span></div><div class="card"><span class="metric-label">Need attention</span><h2 id="low-stock-count">0</h2><span class="metric-footnote">At or below refill threshold</span></div><div class="card"><span class="metric-label">Units on hand</span><h2 id="inventory-units">0</h2><span class="metric-footnote">Across tracked products</span></div></div>
+                    <div class="inventory-page-grid">
+                        <section class="ai-section page-card inventory-add-card"><div class="section-heading-row"><div><p class="page-eyebrow">ADD A PRODUCT</p><h2>Track new stock</h2><p>Sales using the same product name will reduce this quantity.</p></div></div><form id="inventory-form"><label for="inventory-product">Product name</label><input id="inventory-product" type="text" maxlength="100" placeholder="e.g. Wireless headphones" required><div class="sale-form-row"><div><label for="inventory-quantity">Quantity on hand</label><input id="inventory-quantity" type="number" min="0" step="1" placeholder="0" required></div><div><label for="inventory-threshold">Alert me at</label><input id="inventory-threshold" type="number" min="0" step="1" value="5" required></div></div><button type="submit" class="auth-submit sale-submit">Add to inventory <span aria-hidden="true">→</span></button><p id="inventory-message" role="status"></p></form></section>
+                        <section class="ai-section page-card inventory-list-card"><div class="section-heading-row"><div><p class="page-eyebrow">STOCK LEVELS</p><h2>Your products</h2><p>Restock an item to update its available quantity.</p></div><button id="refresh-inventory" type="button" class="secondary-button">Refresh</button></div><p id="inventory-list-message" class="insight-message" role="status" aria-live="polite">Loading inventory…</p><div id="inventory-list" class="inventory-list"></div></section>
+                    </div>
+                </section>
+                <section class="app-page" data-app-page="copilot" hidden>
+                    <div class="page-intro"><p class="page-eyebrow">YOUR BUSINESS PARTNER</p><h1>AI Business Copilot</h1><p>Get profession-specific answers, sales insights, and ideas to promote your business.</p></div>
+                    <section class="ai-section copilot-card"><div class="copilot-mark" aria-hidden="true">✧</div><p class="page-eyebrow">MITRA INTELLIGENCE</p><h2>What would you like to understand?</h2><p id="ai-context-label" class="ai-context-label">Sales and guidance focused on your business</p><label for="question">Ask about your business</label><form id="copilot-question-form" class="copilot-input-row"><input type="text" id="question" placeholder="Ask about your business…"><button id="ask-mitra-button" type="submit" class="auth-submit">Ask Mitra <span aria-hidden="true">→</span></button></form><div class="copilot-prompts" role="group" aria-label="Suggested questions"><button type="button" class="copilot-prompt" data-question="Summarize my sales for this period.">Sales summary <span>↗</span></button><button type="button" class="copilot-prompt" data-question="Which product led revenue this period, and how much did it contribute?">Top product <span>↗</span></button><button type="button" class="copilot-prompt" data-question="Recommend one practical next step for my business, using my sales and inventory data.">Business-specific recommendation <span>↗</span></button><button type="button" class="copilot-prompt" data-question="Suggest three practical, low-cost promotion ideas to reach more customers for my business. Tailor them to my profession and explain how I can track results.">Promotion ideas <span>↗</span></button><button type="button" class="copilot-prompt" data-question="How do I add a sale in Mitra?">How to add a sale <span>↗</span></button><button type="button" class="copilot-prompt" data-question="How do I add an item to my inventory in Mitra?">How to add inventory <span>↗</span></button></div><div id="ai-response" class="ai-response" role="log" aria-live="polite" aria-relevant="additions"></div></section>
+                </section>
+            </div>
+        </main>
+    </div>
+    <div id="mini-assistant" class="mini-assistant" hidden>
+        <svg class="mini-robot-defs" aria-hidden="true" focusable="false">
+            <symbol id="mitra-robot" viewBox="0 0 88 104">
+                <defs>
+                    <linearGradient id="mitra-robot-shell" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#84aaff"/><stop offset="1" stop-color="#52d4b5"/></linearGradient>
+                    <linearGradient id="mitra-robot-body" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#355b9a"/><stop offset="1" stop-color="#208779"/></linearGradient>
+                </defs>
+                <ellipse cx="44" cy="97" rx="23" ry="4" fill="#07101e" opacity=".28"/>
+                <path d="M44 13v8" stroke="#91b7ff" stroke-linecap="round" stroke-width="3"/>
+                <circle cx="44" cy="10" r="4" fill="#7ce4c7" stroke="#d4fff2" stroke-width="1.5"/>
+                <rect x="10" y="37" width="8" height="19" rx="4" fill="#4e74b5"/>
+                <rect x="70" y="37" width="8" height="19" rx="4" fill="#368a83"/>
+                <rect x="16" y="20" width="56" height="53" rx="17" fill="url(#mitra-robot-shell)" stroke="#c4d7ff" stroke-opacity=".72" stroke-width="1.5"/>
+                <rect x="23" y="28" width="42" height="33" rx="11" fill="#101c31"/>
+                <circle cx="35" cy="43" r="4" fill="#92f2d4"/>
+                <circle cx="53" cy="43" r="4" fill="#92f2d4"/>
+                <path d="M37 52q7 6 14 0" fill="none" stroke="#92f2d4" stroke-linecap="round" stroke-width="2"/>
+                <path d="m66 26 3-5" stroke="#fff" stroke-linecap="round" stroke-width="2" opacity=".8"/>
+                <rect x="39" y="72" width="10" height="6" rx="3" fill="#86b2ec"/>
+                <rect x="25" y="77" width="38" height="18" rx="8" fill="url(#mitra-robot-body)" stroke="#88b9e5" stroke-opacity=".45"/>
+                <circle cx="44" cy="86" r="3" fill="#a5ffe1"/>
+                <path d="M25 82 20 87m43-5 5 5" stroke="#7aa7d6" stroke-linecap="round" stroke-width="4"/>
+                <path d="M34 95v4m20-4v4" stroke="#7aa7d6" stroke-linecap="round" stroke-width="4"/>
+            </symbol>
+        </svg>
+        <div class="mini-robot" aria-hidden="true"><svg viewBox="0 0 88 104"><use href="#mitra-robot"/></svg></div>
+        <section id="mini-assistant-panel" class="mini-assistant-panel" aria-label="Mitra Assistant chat" hidden>
+            <header class="mini-assistant-header">
+                <span class="mini-assistant-avatar" aria-hidden="true"><svg viewBox="0 0 88 104"><use href="#mitra-robot"/></svg></span>
+                <div><strong>Mitra Assistant</strong><span id="mini-assistant-scope">Business-specific sales and stock help</span></div>
+                <button id="mini-assistant-close" type="button" class="mini-assistant-close" aria-label="Close Mitra Assistant">×</button>
+            </header>
+            <div id="mini-chat-messages" class="mini-chat-messages" role="log" aria-live="polite" aria-relevant="additions">
+                <p class="mini-chat-message assistant-message">Hi! Ask me about your sales, inventory, or what to focus on next.</p>
+            </div>
+            <form id="mini-chat-form" class="mini-chat-form">
+                <input id="mini-chat-input" type="text" maxlength="1000" placeholder="Ask about your business…" aria-label="Ask Mitra Assistant" required>
+                <button type="submit" aria-label="Send question"><span aria-hidden="true">↑</span></button>
+            </form>
+            <div class="mini-assistant-footer"><span id="mini-assistant-note">Your business data stays in your account.</span><button id="mini-chat-signin" type="button" hidden>Sign in to chat</button></div>
+        </section>
+        <button id="mini-assistant-trigger" class="mini-assistant-trigger" type="button" aria-expanded="false" aria-controls="mini-assistant-panel">
+            <span class="mini-trigger-icon" aria-hidden="true">✧</span><span>Ask Mitra</span><span class="mini-trigger-status" aria-hidden="true"></span>
+        </button>
+    </div>
+    <script src="js/script.js?v=copilot-followups-1"></script>
+</body>
+</html>
