@@ -222,6 +222,7 @@ function setSignedIn(user) {
     setMiniAssistantOpen(false);
     setActivePage(getPageFromHash(), false);
     loadDashboard();
+    loadDailyBriefing();
     loadRecentSales();
     loadInventory();
 }
@@ -270,6 +271,11 @@ function setSignedOut(message = '') {
     document.getElementById('question').placeholder = 'Ask about your business…';
     miniChatInput.placeholder = 'Ask about your business…';
     document.getElementById('mini-assistant-scope').textContent = 'Business-specific sales and stock help';
+    document.getElementById('daily-briefing-content').textContent = 'Your daily briefing will appear here after you sign in.';
+    document.getElementById('daily-briefing-content').dataset.loaded = '';
+    document.getElementById('daily-briefing-updated').textContent = '';
+    document.getElementById('promotion-plan-output').hidden = true;
+    document.getElementById('promotion-plan-output').textContent = '';
     document.getElementById('landing-message').innerText = message;
     showAuthForm('login');
     resetMiniAssistant();
@@ -340,6 +346,9 @@ document.getElementById('profile-form').addEventListener('submit', async (event)
         const period = insightsRangeControl.options[insightsRangeControl.selectedIndex].text;
         document.getElementById('ai-context-label').innerText = `Sales from ${period} · focused on your ${merchantProfession} business`;
         resetMiniAssistant();
+        document.getElementById('promotion-plan-output').hidden = true;
+        document.getElementById('promotion-plan-output').textContent = '';
+        loadDailyBriefing(true);
         closeBusinessProfile();
     } catch (error) {
         message.innerText = error.message;
@@ -396,6 +405,8 @@ document.getElementById('logout-button').addEventListener('click', async () => {
 
 document.getElementById('refresh-sales').addEventListener('click', loadRecentSales);
 document.getElementById('refresh-inventory').addEventListener('click', loadInventory);
+document.getElementById('refresh-daily-briefing').addEventListener('click', () => loadDailyBriefing(true));
+document.getElementById('generate-promotion-plan').addEventListener('click', generatePromotionPlan);
 insightsRangeControl.addEventListener('change', loadDashboard);
 
 function setNotificationsOpen(isOpen) {
@@ -690,6 +701,131 @@ function renderTopProducts(products) {
     });
 }
 
+function renderDailyBriefing(briefingText) {
+    const content = document.getElementById('daily-briefing-content');
+    const definitions = [
+        { key: 'sales', title: 'Sales pulse', icon: '↗', pattern: /^(?:recent sales|sales pulse)(?:\s*\([^)]*\))?\s*:?\s*(.*)$/i, action: 'sales', button: 'View sales' },
+        { key: 'stock', title: 'Stock watch', icon: '▤', pattern: /^(?:stock watch|inventory watch)\s*:?\s*(.*)$/i, action: 'inventory', button: 'Review inventory' },
+        { key: 'action', title: 'Today’s action', icon: '✧', pattern: /^(?:today's action|one action for today|action for today)\s*:?\s*(.*)$/i, action: 'copilot', button: 'Ask Mitra about this' },
+    ];
+    const sections = new Map();
+    let activeSection = null;
+
+    String(briefingText || '').split(/\r?\n/).forEach((rawLine) => {
+        const line = rawLine.trim().replace(/^#{1,6}\s*/, '').replace(/^\d+[.)]\s*/, '').replace(/^[-*]\s*/, '').replace(/\*\*/g, '').replace(/[’‘]/g, "'");
+        if (!line) return;
+        const definition = definitions.find((item) => item.pattern.test(line));
+        if (definition) {
+            activeSection = definition;
+            sections.set(definition.key, line.replace(definition.pattern, '$1').trim());
+        } else if (activeSection) {
+            const existing = sections.get(activeSection.key);
+            sections.set(activeSection.key, existing ? `${existing}\n${line}` : line);
+        }
+    });
+
+    const parsedSections = definitions
+        .filter((definition) => sections.has(definition.key) && sections.get(definition.key))
+        .map((definition) => ({ ...definition, body: sections.get(definition.key) }));
+    const cards = parsedSections.length
+        ? parsedSections
+        : [{ key: 'briefing', title: 'Mitra’s briefing', icon: '✧', body: String(briefingText || 'No briefing details are available yet.') }];
+
+    content.replaceChildren();
+    cards.forEach((section) => {
+        const card = document.createElement('article');
+        card.className = `daily-briefing-section daily-briefing-${section.key}`;
+        const heading = document.createElement('div');
+        heading.className = 'daily-briefing-section-heading';
+        const icon = document.createElement('span');
+        icon.className = 'daily-briefing-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = section.icon;
+        const title = document.createElement('h3');
+        title.textContent = section.title;
+        heading.append(icon, title);
+        const body = document.createElement('p');
+        body.className = 'daily-briefing-section-body';
+        body.textContent = section.body;
+        card.append(heading, body);
+
+        if (section.action) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'briefing-action-button';
+            button.textContent = section.button;
+            button.addEventListener('click', () => {
+                if (section.action === 'sales') setActivePage('sales');
+                if (section.action === 'inventory') setActivePage('inventory');
+                if (section.action === 'copilot') {
+                    setActivePage('copilot');
+                    const question = document.getElementById('question');
+                    question.value = `Help me act on this recommendation from my daily briefing: ${section.body}`;
+                    question.focus();
+                }
+            });
+            card.appendChild(button);
+        }
+        content.appendChild(card);
+    });
+}
+
+async function loadDailyBriefing(refresh = false) {
+    const content = document.getElementById('daily-briefing-content');
+    const updated = document.getElementById('daily-briefing-updated');
+    const button = document.getElementById('refresh-daily-briefing');
+    if (!content.dataset.loaded) content.textContent = 'Preparing your daily briefing…';
+    button.disabled = true;
+
+    try {
+        const response = await fetch(`/api/daily-briefing${refresh ? '?refresh=1' : ''}`, { cache: 'no-store' });
+        const data = await response.json();
+        if (response.status === 401) {
+            setSignedOut('Your session has expired. Please sign in again.');
+            return;
+        }
+        if (!response.ok) throw new Error(data.message || 'Could not load your daily briefing.');
+        renderDailyBriefing(data.briefing || 'Mitra did not return a briefing. Refresh to try again.');
+        content.dataset.loaded = 'true';
+        const generatedAt = data.generatedAt ? new Date(data.generatedAt) : new Date();
+        const time = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(generatedAt);
+        updated.textContent = `${data.cached ? 'Today’s saved briefing' : 'Briefing refreshed'} · ${time}`;
+    } catch (error) {
+        content.textContent = error.message || 'Could not load your daily briefing.';
+        content.dataset.loaded = '';
+        updated.textContent = '';
+    } finally {
+        button.disabled = false;
+    }
+}
+
+async function generatePromotionPlan() {
+    const output = document.getElementById('promotion-plan-output');
+    const button = document.getElementById('generate-promotion-plan');
+    output.hidden = false;
+    output.textContent = 'Comparing your last 30 days of sales with current stock…';
+    button.disabled = true;
+
+    try {
+        const response = await fetch('/api/promotion-plan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+        });
+        const data = await response.json();
+        if (response.status === 401) {
+            setSignedOut('Your session has expired. Please sign in again.');
+            return;
+        }
+        if (!response.ok) throw new Error(data.message || 'Could not create a promotion plan.');
+        output.textContent = data.plan || 'Mitra did not return a promotion plan.';
+    } catch (error) {
+        output.textContent = error.message || 'Could not create a promotion plan.';
+    } finally {
+        button.disabled = false;
+    }
+}
+
 async function loadRecentSales() {
     const body = document.getElementById('sales-history-body');
     const message = document.getElementById('sales-history-message');
@@ -720,6 +856,15 @@ async function loadRecentSales() {
                 cell.textContent = value;
                 row.appendChild(cell);
             });
+            const actionCell = document.createElement('td');
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'delete-sale-button';
+            deleteButton.textContent = 'Delete';
+            deleteButton.setAttribute('aria-label', `Delete ${sale.product} sale`);
+            deleteButton.addEventListener('click', () => deleteSale(sale, deleteButton));
+            actionCell.appendChild(deleteButton);
+            row.appendChild(actionCell);
             return row;
         });
 
@@ -727,6 +872,31 @@ async function loadRecentSales() {
         message.innerText = `Showing ${rows.length} recent ${rows.length === 1 ? 'sale' : 'sales'}.`;
     } catch (error) {
         message.innerText = error.message;
+    }
+}
+
+async function deleteSale(sale, button) {
+    const confirmed = window.confirm(`Delete this sale of ${sale.product}? The amount will be removed from sales totals and the quantity returned to inventory.`);
+    if (!confirmed) return;
+
+    const message = document.getElementById('sales-history-message');
+    button.disabled = true;
+    message.textContent = 'Deleting sale…';
+    try {
+        const response = await fetch(`/api/sales/${encodeURIComponent(sale._id)}`, { method: 'DELETE' });
+        const data = await response.json();
+        if (response.status === 401) {
+            setSignedOut('Your session has expired. Please sign in again.');
+            return;
+        }
+        if (!response.ok) throw new Error(data.message || 'Could not delete the sale.');
+        await Promise.all([loadDashboard(), loadRecentSales(), loadInventory()]);
+        message.textContent = data.message;
+        loadDailyBriefing(true);
+    } catch (error) {
+        message.textContent = error.message || 'Could not delete the sale.';
+    } finally {
+        button.disabled = false;
     }
 }
 

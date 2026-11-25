@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Sale = require('../models/sale.models');
 const InventoryItem = require('../models/inventory.models');
 const { evaluateLowStock } = require('../services/inventory.services');
@@ -21,6 +22,44 @@ router.get('/', async (req, res) => {
     }
 });
 
+router.delete('/:id', async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+        return res.status(400).json({ message: 'Invalid sale.' });
+    }
+
+    try {
+        const sale = await Sale.findOneAndDelete({ _id: req.params.id, merchantId: req.userId }).lean();
+        if (!sale) return res.status(404).json({ message: 'Sale not found.' });
+
+        let restoredItem = null;
+        try {
+            restoredItem = await InventoryItem.findOneAndUpdate(
+                { merchantId: req.userId, productKey: sale.product.trim().toLocaleLowerCase('en') },
+                { $inc: { quantity: sale.quantity }, $set: { updatedAt: new Date() } },
+                { new: true },
+            );
+        } catch (error) {
+            await Sale.create(sale);
+            throw error;
+        }
+
+        if (restoredItem) {
+            try {
+                await evaluateLowStock(restoredItem);
+            } catch (error) {
+                console.error('Could not update low-stock notification after deleting a sale:', error.message);
+            }
+        }
+
+        const message = restoredItem
+            ? `Sale deleted. ${restoredItem.quantity} ${restoredItem.product} remaining in stock.`
+            : 'Sale deleted. The inventory item was not found, so stock could not be restored.';
+        return res.json({ message, sale, restoredQuantity: restoredItem?.quantity ?? null });
+    } catch (error) {
+        return res.status(500).json({ message: 'Could not delete the sale.' });
+    }
+});
+
 router.post('/', async (req, res) => {
     const body = req.body || {};
     const product = typeof body.product === 'string' ? body.product.trim() : '';
@@ -34,16 +73,26 @@ router.post('/', async (req, res) => {
     try {
         const productKey = product.toLocaleLowerCase('en');
         const trackedItem = await InventoryItem.findOne({ merchantId: req.userId, productKey });
-        let updatedItem = null;
-        if (trackedItem) {
-            updatedItem = await InventoryItem.findOneAndUpdate(
-                { _id: trackedItem._id, merchantId: req.userId, quantity: { $gte: quantity } },
-                { $inc: { quantity: -quantity }, $set: { updatedAt: new Date() } },
-                { new: true },
-            );
-            if (!updatedItem) {
-                return res.status(409).json({ message: 'Not enough ' + trackedItem.product + ' in stock. Available: ' + trackedItem.quantity + '.' });
-            }
+        if (!trackedItem) {
+            return res.status(400).json({
+                message: `“${product}” is not in your inventory. Check the spelling or add the item to Inventory before recording this sale.`,
+                code: 'PRODUCT_NOT_IN_INVENTORY',
+            });
+        }
+
+        const updatedItem = await InventoryItem.findOneAndUpdate(
+            { _id: trackedItem._id, merchantId: req.userId, quantity: { $gte: quantity } },
+            { $inc: { quantity: -quantity }, $set: { updatedAt: new Date() } },
+            { new: true },
+        );
+        if (!updatedItem) {
+            const currentItem = await InventoryItem.findOne({ _id: trackedItem._id, merchantId: req.userId }).select('product quantity').lean();
+            return res.status(409).json({
+                message: currentItem
+                    ? `Not enough ${currentItem.product} in stock. Available: ${currentItem.quantity}.`
+                    : 'This item is no longer in your inventory. Refresh the page and try again.',
+                code: 'INSUFFICIENT_STOCK',
+            });
         }
 
         let sale;

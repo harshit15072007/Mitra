@@ -1364,6 +1364,25 @@ input:focus {
 .metric-footnote { color: var(--text-soft); font-size: 11px; }
 .insights-grid { gap: 16px; }
 .insight-card { margin-top: 16px; padding: 21px; }
+.daily-briefing-card { margin-top: 16px; padding: 22px; border-radius: 13px; background: radial-gradient(ellipse at 100% 0%, rgba(80, 129, 217, 0.12), transparent 45%), var(--panel-bg); }
+.daily-briefing-heading, .promotion-planner-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.daily-briefing-heading h2, .promotion-planner-heading h2 { margin: 4px 0 0; color: var(--text-main); font-size: 18px; }
+.daily-briefing-heading p:last-child, .promotion-planner-heading p:last-child { margin: 6px 0 0; color: var(--text-muted); font-size: 12px; }
+.daily-briefing-heading .page-eyebrow, .promotion-planner-heading .page-eyebrow { margin: 0; }
+.daily-briefing-heading .secondary-button { width: auto; flex: 0 0 auto; padding: 9px 12px; font-size: 11px; }
+.daily-briefing-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 11px; margin-top: 18px; color: var(--text-main); font-size: 13px; line-height: 1.7; }
+.daily-briefing-section { display: flex; min-height: 164px; flex-direction: column; align-items: flex-start; padding: 15px; border: 1px solid var(--line); border-radius: 12px; background: linear-gradient(145deg, rgba(120, 164, 255, 0.07), rgba(112, 216, 189, 0.035)), var(--panel-bg); transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+.daily-briefing-section:hover { transform: translateY(-2px); border-color: rgba(120, 164, 255, 0.32); box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12); }
+.daily-briefing-section-heading { display: flex; align-items: center; gap: 9px; }
+.daily-briefing-icon { display: grid; width: 30px; height: 30px; flex: 0 0 30px; place-items: center; border: 1px solid rgba(112, 216, 189, 0.2); border-radius: 9px; background: rgba(112, 216, 189, 0.08); color: var(--mint); font-size: 15px; }
+.daily-briefing-section h3 { margin: 0; color: var(--text-main); font-size: 12px; }
+.daily-briefing-section-body { margin: 13px 0 16px; color: var(--text-muted); font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.briefing-action-button { width: auto; margin-top: auto; padding: 7px 0; background: transparent; color: var(--blue); font-size: 11px; text-align: left; }
+.briefing-action-button:hover { background: transparent; color: var(--mint); }
+.daily-briefing-updated { margin: 12px 0 0; color: var(--text-soft); font-size: 10px; }
+.promotion-planner-card { max-width: 860px; margin: 18px auto 0; padding: clamp(22px, 4vw, 34px); border-radius: 15px; background: radial-gradient(ellipse at 100% 0%, rgba(112, 216, 189, 0.12), transparent 46%), var(--panel-bg); }
+.promotion-planner-heading .auth-submit { width: auto; flex: 0 0 auto; margin: 0; padding: 11px 15px; white-space: nowrap; }
+.promotion-plan-output:not([hidden]) { margin-top: 18px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel-raised); color: var(--text-main); font-size: 13px; line-height: 1.75; white-space: pre-wrap; }
 .overview-actions { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 18px; padding: 19px 21px; border: 1px solid var(--line); border-radius: 13px; background: linear-gradient(110deg, rgba(120, 164, 255, 0.08), rgba(112, 216, 189, 0.04)); }
 .overview-actions h2 { margin: 0; color: var(--text-main); font-size: 15px; }
 .overview-actions p { margin: 6px 0 0; color: var(--text-muted); font-size: 12px; }
@@ -1389,8 +1408,10 @@ input:focus {
 .sale-submit { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin-top: 18px; border-radius: 8px; }
 .sale-submit span { font-size: 18px; }
 .sales-history { overflow: hidden; }
-.sales-table { min-width: 480px; }
+.sales-table { min-width: 570px; }
 .sales-table th, .sales-table td { padding: 12px 9px; }
+.delete-sale-button { width: auto; padding: 6px 9px; border: 1px solid rgba(225, 92, 98, 0.32); border-radius: 7px; background: rgba(225, 92, 98, 0.08); color: #ff9a9a; font-size: 11px; }
+.delete-sale-button:hover:not(:disabled) { background: rgba(225, 92, 98, 0.18); color: #ffc0c2; }
 
 .copilot-card { position: relative; max-width: 860px; margin: 18px auto 0; padding: clamp(25px, 5vw, 48px); border-radius: 16px; background: radial-gradient(ellipse at 100% 0%, rgba(80, 129, 217, 0.13), transparent 43%), var(--panel-bg); }
 .copilot-mark { display: grid; width: 42px; height: 42px; margin-bottom: 20px; place-items: center; border: 1px solid rgba(112, 216, 189, 0.25); border-radius: 12px; background: rgba(112, 216, 189, 0.09); color: var(--mint); font-size: 23px; }
@@ -1432,6 +1453,8 @@ input:focus {
     .insights-grid { grid-template-columns: 1fr; }
     .overview-actions > div:last-child { flex-wrap: wrap; }
     .overview-footer { align-items: flex-start; flex-direction: column; gap: 10px; }
+    .daily-briefing-heading, .promotion-planner-heading { align-items: flex-start; flex-direction: column; }
+    .promotion-planner-heading .auth-submit { width: 100%; }
 }
 
 @media (max-width: 430px) {
@@ -1444,8 +1467,10 @@ input:focus {
 
 @media (prefers-reduced-motion: reduce) {
     .app-main::before,
-    .app-page {
+    .app-page,
+    .daily-briefing-section {
         animation: none !important;
+        transition: none !important;
     }
 }
 

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Sale = require('../models/sale.models');
 const User = require('../models/user.models');
 const InventoryItem = require('../models/inventory.models');
+const DailyBriefing = require('../models/dailybriefing.models');
 const askBusinessAI = require('../services/ai.services');
 
 const router = express.Router();
@@ -95,6 +96,142 @@ router.get('/dashboard', async (req, res) => {
         return res.json({ sales: totals?.sales || 0, orders: totals?.orders || 0, products: totals?.products || 0 });
     } catch (error) {
         return res.status(500).json({ message: 'Could not load the business dashboard.' });
+    }
+});
+
+router.get('/daily-briefing', async (req, res) => {
+    const dayKey = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(new Date());
+    const refresh = req.query.refresh === '1';
+
+    try {
+        if (!refresh) {
+            const cached = await DailyBriefing.findOne({ merchantId: req.userId, dayKey }).lean();
+            if (cached) return res.json({ briefing: cached.briefing, generatedAt: cached.generatedAt, cached: true });
+        }
+
+        const merchant = await User.findById(req.userId).select('profession').lean();
+        if (!merchant) return res.status(401).json({ message: 'Please sign in to continue.' });
+
+        const [insights, inventory] = await Promise.all([
+            aggregateSalesInsights(req.userId, '7d'),
+            InventoryItem.find({ merchantId: req.userId })
+                .sort({ quantity: 1 })
+                .limit(100)
+                .select('product quantity lowStockThreshold')
+                .lean(),
+        ]);
+        const inventorySummary = inventory.map((item) => ({
+            product: item.product,
+            quantity: item.quantity,
+            lowStockThreshold: item.lowStockThreshold,
+            lowStock: item.quantity <= item.lowStockThreshold,
+        }));
+        const briefing = await askBusinessAI(
+            'Prepare today’s concise business briefing for this merchant. Return exactly three plain-text lines using these labels: Recent sales: (7-day sales, order and unit totals, and top product if available); Stock watch: (only items at or below their refill threshold, or say no stock alerts); Today’s action: (one practical action based on the available data). If data is missing, state that plainly and give a useful setup action. Separate recorded facts from suggested actions. Do not invent comparisons or trends. Do not add an introduction, Markdown, or extra sections.',
+            {
+                profession: merchant.profession || 'General retailer',
+                period: RANGE_LABELS['7d'],
+                ...insights.summary,
+                topProducts: insights.topProducts.map((product) => ({
+                    product: product._id,
+                    units: product.units,
+                    revenue: product.revenue,
+                })),
+                inventory: inventorySummary,
+            },
+        );
+        const generatedAt = new Date();
+        let saved;
+        try {
+            saved = await DailyBriefing.findOneAndUpdate(
+                { merchantId: req.userId, dayKey },
+                { $set: { briefing, generatedAt } },
+                { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+            ).lean();
+        } catch (error) {
+            if (error.code !== 11000) throw error;
+            saved = await DailyBriefing.findOne({ merchantId: req.userId, dayKey }).lean();
+        }
+        return res.json({ briefing: saved?.briefing || briefing, generatedAt: saved?.generatedAt || generatedAt, cached: false });
+    } catch (error) {
+        return res.status(error.status || 502).json({ message: error.message || 'Could not prepare your daily business briefing.' });
+    }
+});
+
+router.post('/promotion-plan', async (req, res) => {
+    try {
+        const merchant = await User.findById(req.userId).select('profession').lean();
+        if (!merchant) return res.status(401).json({ message: 'Please sign in to continue.' });
+
+        const inventory = await InventoryItem.find({ merchantId: req.userId })
+            .sort({ quantity: -1 })
+            .limit(100)
+            .select('product productKey quantity lowStockThreshold')
+            .lean();
+        if (!inventory.length) {
+            return res.json({ plan: 'Add products to your Inventory page first. Mitra will then compare their stock with recent sales and suggest safe promotion ideas.', periodLabel: 'Last 30 days' });
+        }
+
+        const periodStart = new Date();
+        periodStart.setUTCHours(0, 0, 0, 0);
+        periodStart.setUTCDate(periodStart.getUTCDate() - 29);
+        const salesByProduct = await Sale.aggregate([
+            { $match: { merchantId: new mongoose.Types.ObjectId(req.userId), createdAt: { $gte: periodStart } } },
+            { $group: {
+                _id: { $toLower: { $trim: { input: '$product' } } },
+                unitsSold: { $sum: '$quantity' },
+                revenue: { $sum: '$amount' },
+            } },
+        ]);
+        const salesMap = new Map(salesByProduct.map((item) => [item._id, item]));
+        const inventoryWithSales = inventory.map((item) => {
+            const productKey = item.productKey || item.product.trim().toLocaleLowerCase('en');
+            const sales = salesMap.get(productKey) || { unitsSold: 0, revenue: 0 };
+            const safePromotionStock = Math.max(item.lowStockThreshold + 2, Math.ceil(item.lowStockThreshold * 1.5));
+            return {
+                product: item.product,
+                quantity: item.quantity,
+                lowStockThreshold: item.lowStockThreshold,
+                unitsSoldLast30Days: sales.unitsSold,
+                revenueLast30Days: sales.revenue,
+                lowStock: item.quantity <= item.lowStockThreshold,
+                promotionReady: item.quantity >= safePromotionStock,
+            };
+        });
+        const excludedProducts = inventoryWithSales.filter((item) => !item.promotionReady);
+        const promotionCandidates = inventoryWithSales
+            .filter((item) => item.promotionReady)
+            .sort((a, b) => a.unitsSoldLast30Days - b.unitsSoldLast30Days || a.revenueLast30Days - b.revenueLast30Days)
+            .slice(0, 8);
+
+        if (!promotionCandidates.length) {
+            return res.json({
+                plan: 'None of your tracked products currently have enough stock above their refill threshold for a safe promotion. Restock or build a larger stock cushion, then generate a new plan.',
+                periodLabel: 'Last 30 days',
+            });
+        }
+
+        const plan = await askBusinessAI(
+            'Create a stock-aware promotion plan for this merchant. Consider only the eligibleProducts list: these products have a safe stock cushion (at least two units and 50% above their refill threshold) and are the slowest recent sellers among eligible tracked items. Never recommend promoting products from excludedProducts; they are low-stock or do not have a safe stock cushion. Give up to three ideas; for each include the product, the recorded stock and 30-day unit sales that make it a candidate, a profession-specific campaign idea, a short ready-to-use promotional message, and a simple success measure. Prefer low-cost ideas. Do not invent discounts, budgets, customer demographics, locations, or expected results, and do not promise sales growth. If there is not enough product or sales data, say so clearly.',
+            {
+                profession: merchant.profession || 'General retailer',
+                period: 'Last 30 days',
+                eligibleProducts: promotionCandidates,
+                excludedProducts: excludedProducts.map((item) => ({
+                    product: item.product,
+                    quantity: item.quantity,
+                    lowStockThreshold: item.lowStockThreshold,
+                })),
+            },
+        );
+        return res.json({ plan, periodLabel: 'Last 30 days' });
+    } catch (error) {
+        return res.status(error.status || 502).json({ message: error.message || 'Could not create a promotion plan.' });
     }
 });
 
