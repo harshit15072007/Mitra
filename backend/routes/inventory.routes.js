@@ -22,8 +22,12 @@ router.post('/', async (req, res) => {
     const product = typeof body.product === 'string' ? body.product.trim() : '';
     const quantity = Number(body.quantity);
     const lowStockThreshold = Number(body.lowStockThreshold);
+    const supplierName = typeof body.supplierName === 'string' ? body.supplierName.trim() : '';
+    const supplierContact = typeof body.supplierContact === 'string' ? body.supplierContact.trim() : '';
+    const leadTimeDays = body.leadTimeDays === '' || body.leadTimeDays === undefined ? 7 : Number(body.leadTimeDays);
     if (product.length < 1 || product.length > 100 || !Number.isInteger(quantity) || quantity < 0 ||
-        !Number.isInteger(lowStockThreshold) || lowStockThreshold < 0) {
+        !Number.isInteger(lowStockThreshold) || lowStockThreshold < 0 || supplierName.length > 120 ||
+        supplierContact.length > 160 || !Number.isInteger(leadTimeDays) || leadTimeDays < 0 || leadTimeDays > 365) {
         return res.status(400).json({ message: 'Enter a product name and whole-number stock and refill threshold values.' });
     }
 
@@ -34,12 +38,36 @@ router.post('/', async (req, res) => {
             productKey: product.toLocaleLowerCase('en'),
             quantity,
             lowStockThreshold,
+            supplierName,
+            supplierContact,
+            leadTimeDays,
         });
         await evaluateLowStock(item);
         return res.status(201).json({ message: 'Inventory item added.', item });
     } catch (error) {
         if (error.code === 11000) return res.status(409).json({ message: 'That product is already in your inventory. Restock the existing item instead.' });
         return res.status(500).json({ message: 'Could not add the inventory item.' });
+    }
+});
+
+router.patch('/:id/supplier', async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid inventory item.' });
+    const supplierName = typeof req.body?.supplierName === 'string' ? req.body.supplierName.trim() : '';
+    const supplierContact = typeof req.body?.supplierContact === 'string' ? req.body.supplierContact.trim() : '';
+    const leadTimeDays = req.body?.leadTimeDays === '' || req.body?.leadTimeDays === undefined ? 7 : Number(req.body.leadTimeDays);
+    if (supplierName.length > 120 || supplierContact.length > 160 || !Number.isInteger(leadTimeDays) || leadTimeDays < 0 || leadTimeDays > 365) {
+        return res.status(400).json({ message: 'Enter a supplier name, contact, and lead time from 0 to 365 whole days.' });
+    }
+    try {
+        const item = await InventoryItem.findOneAndUpdate(
+            { _id: req.params.id, merchantId: req.userId },
+            { $set: { supplierName, supplierContact, leadTimeDays, updatedAt: new Date() } },
+            { new: true, runValidators: true },
+        );
+        if (!item) return res.status(404).json({ message: 'Inventory item not found.' });
+        return res.json({ message: 'Supplier details saved.', item });
+    } catch {
+        return res.status(500).json({ message: 'Could not save supplier details.' });
     }
 });
 

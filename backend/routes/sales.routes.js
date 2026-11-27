@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Sale = require('../models/sale.models');
 const InventoryItem = require('../models/inventory.models');
+const Campaign = require('../models/campaign.models');
 const { evaluateLowStock } = require('../services/inventory.services');
 
 const router = express.Router();
@@ -14,7 +15,8 @@ router.get('/', async (req, res) => {
         const sales = await Sale.find({ merchantId: req.userId })
             .sort({ createdAt: -1 })
             .limit(limit)
-            .select('product quantity amount createdAt')
+            .select('product quantity amount createdAt campaignId')
+            .populate('campaignId', 'name')
             .lean();
         return res.json({ sales });
     } catch (error) {
@@ -65,6 +67,7 @@ router.post('/', async (req, res) => {
     const product = typeof body.product === 'string' ? body.product.trim() : '';
     const quantity = Number(body.quantity);
     const amount = Number(body.amount);
+    const campaignId = typeof body.campaignId === 'string' ? body.campaignId.trim() : '';
 
     if (!product || !Number.isInteger(quantity) || quantity < 1 || !Number.isFinite(amount) || amount < 0) {
         return res.status(400).json({ message: 'Enter a product, a whole quantity greater than zero, and a valid non-negative amount.' });
@@ -72,6 +75,18 @@ router.post('/', async (req, res) => {
 
     try {
         const productKey = product.toLocaleLowerCase('en');
+        let campaign = null;
+        if (campaignId) {
+            if (!mongoose.isValidObjectId(campaignId)) {
+                return res.status(400).json({ message: 'Choose a valid campaign or leave the campaign field empty.' });
+            }
+            campaign = await Campaign.findOne({ _id: campaignId, merchantId: req.userId, status: 'active' }).select('productKey name product');
+            if (!campaign) return res.status(400).json({ message: 'That campaign is no longer active. Refresh the campaign list and try again.' });
+            if (campaign.productKey !== productKey) {
+                return res.status(400).json({ message: `The ${campaign.name} campaign is for ${campaign.product}. Record this sale without the campaign or choose one for ${product}.` });
+            }
+        }
+
         const trackedItem = await InventoryItem.findOne({ merchantId: req.userId, productKey });
         if (!trackedItem) {
             return res.status(400).json({
@@ -97,7 +112,7 @@ router.post('/', async (req, res) => {
 
         let sale;
         try {
-            sale = await Sale.create({ merchantId: req.userId, product, quantity, amount });
+            sale = await Sale.create({ merchantId: req.userId, campaignId: campaign?._id || null, product, quantity, amount });
         } catch (error) {
             if (updatedItem) {
                 await InventoryItem.updateOne(

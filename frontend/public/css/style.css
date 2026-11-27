@@ -1383,6 +1383,34 @@ input:focus {
 .promotion-planner-card { max-width: 860px; margin: 18px auto 0; padding: clamp(22px, 4vw, 34px); border-radius: 15px; background: radial-gradient(ellipse at 100% 0%, rgba(112, 216, 189, 0.12), transparent 46%), var(--panel-bg); }
 .promotion-planner-heading .auth-submit { width: auto; flex: 0 0 auto; margin: 0; padding: 11px 15px; white-space: nowrap; }
 .promotion-plan-output:not([hidden]) { margin-top: 18px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel-raised); color: var(--text-main); font-size: 13px; line-height: 1.75; white-space: pre-wrap; }
+.save-campaign-form:not([hidden]) { display: grid; gap: 10px; margin-top: 14px; padding: 17px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-raised); }
+.save-campaign-form h3, .campaign-results h3 { margin: 4px 0; color: var(--text-main); font-size: 16px; }
+.save-campaign-form > div p:last-child { margin: 4px 0 0; }
+.save-campaign-form input, .sale-entry-card select { box-sizing: border-box; width: 100%; }
+.save-campaign-form .auth-submit { margin-top: 4px; }
+.campaign-field-hint { color: var(--text-soft); font-size: 11px; line-height: 1.55; }
+.sale-entry-card .campaign-field-hint { display: block; margin: 5px 0 0; }
+.campaign-results { margin-top: 22px; padding-top: 19px; border-top: 1px solid var(--line); }
+.campaign-results-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.campaign-results-heading .page-eyebrow { margin: 0; }
+.campaign-results-heading .secondary-button { width: auto; flex: 0 0 auto; padding: 8px 11px; font-size: 11px; }
+.campaign-results > .campaign-field-hint { margin: 9px 0 12px; }
+.campaign-results-list { display: grid; gap: 10px; }
+.campaign-result-card { padding: 15px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel-raised); }
+.campaign-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.campaign-card-heading h4 { margin: 0; color: var(--text-main); font-size: 13px; }
+.campaign-card-heading p { margin: 5px 0 0; color: var(--text-soft); font-size: 11px; }
+.campaign-status { padding: 5px 8px; border-radius: 99px; background: rgba(148, 163, 184, 0.12); color: var(--text-muted); font-size: 10px; white-space: nowrap; }
+.campaign-status.is-active { background: rgba(112, 216, 189, 0.1); color: var(--mint); }
+.campaign-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 8px; margin: 14px 0; }
+.campaign-metrics > div { display: grid; gap: 5px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+.campaign-metrics span { color: var(--text-soft); font-size: 10px; }
+.campaign-metrics strong { color: var(--text-main); font-size: 13px; }
+.campaign-result-card details { color: var(--text-muted); font-size: 11px; }
+.campaign-result-card summary { cursor: pointer; color: var(--blue); }
+.campaign-result-card details p { margin: 8px 0 2px; color: var(--text-muted); line-height: 1.65; white-space: pre-wrap; }
+.close-campaign-button { width: auto; margin-top: 12px; padding: 7px 10px; font-size: 10px; }
+.campaign-attribution-note { margin: 12px 0 0; color: var(--text-soft); font-size: 10px; line-height: 1.55; }
 .overview-actions { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 18px; padding: 19px 21px; border: 1px solid var(--line); border-radius: 13px; background: linear-gradient(110deg, rgba(120, 164, 255, 0.08), rgba(112, 216, 189, 0.04)); }
 .overview-actions h2 { margin: 0; color: var(--text-main); font-size: 15px; }
 .overview-actions p { margin: 6px 0 0; color: var(--text-muted); font-size: 12px; }
@@ -1709,6 +1737,37 @@ input:focus {
 .inventory-restock { display: flex; gap: 6px; }
 .inventory-restock input { box-sizing: border-box; width: 66px; min-width: 0; padding: 8px 7px; font-size: 11px; }
 .restock-button { width: auto; padding: 8px 10px; border-radius: 7px; font-size: 10px; white-space: nowrap; }
+.inventory-add-card .supplier-form-row { grid-template-columns: 1fr 0.72fr; }
+.inventory-add-card .supplier-form-row input { min-width: 0; }
+.inventory-supplier-details { grid-column: 1 / -1; margin-top: 5px; color: var(--text-soft); font-size: 10px; }
+.inventory-supplier-details summary { cursor: pointer; }
+.inventory-supplier-form { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(110px, 1fr) 72px auto; gap: 7px; align-items: center; margin-top: 8px; }
+.inventory-supplier-form input { box-sizing: border-box; width: 100%; min-width: 0; padding: 8px; font-size: 10px; }
+.supplier-save-button { width: auto; padding: 8px 9px; font-size: 10px; white-space: nowrap; }
+.supplier-save-message { grid-column: 1 / -1; }
+.restock-workspace { margin-top: 16px; padding: 22px; border-radius: 13px; }
+.restock-workspace .section-heading-row h2 { margin: 7px 0 0; color: var(--text-main); font-size: 19px; }
+.restock-workspace .section-heading-row p:last-child { max-width: 560px; margin: 6px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.restock-workspace .section-heading-row .secondary-button { width: auto; flex: 0 0 auto; padding: 8px 11px; font-size: 11px; }
+.restock-suggestions, .purchase-orders-list { display: grid; gap: 9px; }
+.restock-suggestion-card, .purchase-order-card { padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-raised); }
+.restock-suggestion-copy h4 { margin: 0; color: var(--text-main); font-size: 13px; }
+.restock-suggestion-copy p { margin: 6px 0; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+.restock-suggestion-copy small { color: var(--text-soft); font-size: 10px; line-height: 1.5; }
+.restock-suggestion-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 12px; }
+.restock-suggestion-actions input, .purchase-order-actions input { box-sizing: border-box; width: 84px; padding: 8px; font-size: 11px; }
+.draft-order-button, .explain-restock-button { width: auto; margin: 0; padding: 8px 10px; font-size: 10px; white-space: nowrap; }
+.purchase-orders-heading { margin-top: 22px; padding-top: 17px; border-top: 1px solid var(--line); }
+.purchase-orders-heading .page-eyebrow { margin: 0; }
+.purchase-orders-heading h3 { margin: 5px 0 10px; color: var(--text-main); font-size: 15px; }
+.purchase-order-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.purchase-order-heading strong { color: var(--text-main); font-size: 12px; }
+.purchase-order-card > p { margin: 7px 0 0; color: var(--text-muted); font-size: 11px; }
+.purchase-order-status { padding: 4px 8px; border-radius: 99px; background: rgba(120, 164, 255, 0.1); color: var(--blue); font-size: 9px; text-transform: capitalize; }
+.purchase-order-status.status-received { background: rgba(112, 216, 189, 0.1); color: var(--mint); }
+.purchase-order-actions { display: flex; gap: 7px; margin-top: 11px; }
+.purchase-order-actions .secondary-button { width: auto; padding: 8px 10px; font-size: 10px; }
+.restock-explanation { margin: 11px 0 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--text-muted); font-size: 11px; line-height: 1.6; }
 
 @media (max-width: 980px) {
     .inventory-page-grid { grid-template-columns: 1fr; }
@@ -1720,6 +1779,9 @@ input:focus {
     .inventory-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
     .inventory-stock { justify-items: start; }
     .inventory-restock { grid-column: 1 / -1; justify-content: flex-end; }
+    .inventory-supplier-form { grid-template-columns: 1fr 1fr; }
+    .restock-suggestion-actions { align-items: stretch; }
+    .restock-suggestion-actions input { width: 100%; }
 }
 
 .mini-assistant { position: fixed; z-index: 1200; right: 24px; bottom: 22px; }

@@ -205,7 +205,6 @@ router.post('/promotion-plan', async (req, res) => {
                 promotionReady: item.quantity >= safePromotionStock,
             };
         });
-        const excludedProducts = inventoryWithSales.filter((item) => !item.promotionReady);
         const promotionCandidates = inventoryWithSales
             .filter((item) => item.promotionReady)
             .sort((a, b) => a.unitsSoldLast30Days - b.unitsSoldLast30Days || a.revenueLast30Days - b.revenueLast30Days)
@@ -215,23 +214,20 @@ router.post('/promotion-plan', async (req, res) => {
             return res.json({
                 plan: 'None of your tracked products currently have enough stock above their refill threshold for a safe promotion. Restock or build a larger stock cushion, then generate a new plan.',
                 periodLabel: 'Last 30 days',
+                targetProduct: null,
             });
         }
 
+        const targetProduct = promotionCandidates[0];
         const plan = await askBusinessAI(
-            'Create a stock-aware promotion plan for this merchant. Consider only the eligibleProducts list: these products have a safe stock cushion (at least two units and 50% above their refill threshold) and are the slowest recent sellers among eligible tracked items. Never recommend promoting products from excludedProducts; they are low-stock or do not have a safe stock cushion. Give up to three ideas; for each include the product, the recorded stock and 30-day unit sales that make it a candidate, a profession-specific campaign idea, a short ready-to-use promotional message, and a simple success measure. Prefer low-cost ideas. Do not invent discounts, budgets, customer demographics, locations, or expected results, and do not promise sales growth. If there is not enough product or sales data, say so clearly.',
+            'Create one stock-aware promotion campaign for the single product in eligibleProduct. This product has a safe stock cushion and is the slowest recent seller among eligible tracked products. Do not suggest a different product. Include a short reason using its recorded stock and 30-day unit sales, one practical campaign idea tailored to the merchant profession, a concise ready-to-use promotional message, and one simple success measure. Prefer low-cost ideas. Do not invent discounts, budgets, customer demographics, locations, or expected results, and do not promise sales growth. If there is not enough product or sales data, say so clearly.',
             {
                 profession: merchant.profession || 'General retailer',
                 period: 'Last 30 days',
-                eligibleProducts: promotionCandidates,
-                excludedProducts: excludedProducts.map((item) => ({
-                    product: item.product,
-                    quantity: item.quantity,
-                    lowStockThreshold: item.lowStockThreshold,
-                })),
+                eligibleProduct: targetProduct,
             },
         );
-        return res.json({ plan, periodLabel: 'Last 30 days' });
+        return res.json({ plan, periodLabel: 'Last 30 days', targetProduct: targetProduct.product });
     } catch (error) {
         return res.status(error.status || 502).json({ message: error.message || 'Could not create a promotion plan.' });
     }

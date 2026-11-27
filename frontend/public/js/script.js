@@ -24,6 +24,7 @@ let merchantAuthenticated = false;
 let miniConversation = [];
 let copilotConversation = [];
 let copilotRequestPending = false;
+let activeCampaigns = [];
 
 function addMiniChatMessage(text, role, pending = false) {
     const message = document.createElement('p');
@@ -225,6 +226,7 @@ function setSignedIn(user) {
     loadDailyBriefing();
     loadRecentSales();
     loadInventory();
+    loadCampaigns();
 }
 
 function getPageFromHash() {
@@ -276,6 +278,13 @@ function setSignedOut(message = '') {
     document.getElementById('daily-briefing-updated').textContent = '';
     document.getElementById('promotion-plan-output').hidden = true;
     document.getElementById('promotion-plan-output').textContent = '';
+    document.getElementById('save-promotion-form').hidden = true;
+    document.getElementById('save-promotion-form').dataset.product = '';
+    document.getElementById('save-promotion-form').dataset.promotion = '';
+    document.getElementById('campaign-results-list').replaceChildren();
+    document.getElementById('campaign-results-message').textContent = '';
+    document.getElementById('sale-campaign').replaceChildren(new Option('No campaign', ''));
+    activeCampaigns = [];
     document.getElementById('landing-message').innerText = message;
     showAuthForm('login');
     resetMiniAssistant();
@@ -405,8 +414,14 @@ document.getElementById('logout-button').addEventListener('click', async () => {
 
 document.getElementById('refresh-sales').addEventListener('click', loadRecentSales);
 document.getElementById('refresh-inventory').addEventListener('click', loadInventory);
+document.getElementById('refresh-restock').addEventListener('click', loadRestockWorkspace);
+document.getElementById('restock-suggestions').addEventListener('click', handleRestockSuggestionAction);
+document.getElementById('purchase-orders-list').addEventListener('click', handlePurchaseOrderAction);
 document.getElementById('refresh-daily-briefing').addEventListener('click', () => loadDailyBriefing(true));
 document.getElementById('generate-promotion-plan').addEventListener('click', generatePromotionPlan);
+document.getElementById('save-promotion-form').addEventListener('submit', saveCampaign);
+document.getElementById('refresh-campaigns').addEventListener('click', loadCampaigns);
+document.getElementById('product').addEventListener('input', updateSaleCampaignOptions);
 insightsRangeControl.addEventListener('change', loadDashboard);
 
 function setNotificationsOpen(isOpen) {
@@ -441,6 +456,9 @@ document.getElementById('inventory-form').addEventListener('submit', async (even
                 product: document.getElementById('inventory-product').value,
                 quantity: document.getElementById('inventory-quantity').value,
                 lowStockThreshold: document.getElementById('inventory-threshold').value,
+                supplierName: document.getElementById('inventory-supplier').value,
+                supplierContact: document.getElementById('inventory-supplier-contact').value,
+                leadTimeDays: document.getElementById('inventory-lead-time').value,
             }),
         });
         const data = await response.json();
@@ -449,6 +467,9 @@ document.getElementById('inventory-form').addEventListener('submit', async (even
         document.getElementById('inventory-product').value = '';
         document.getElementById('inventory-quantity').value = '';
         document.getElementById('inventory-threshold').value = '5';
+        document.getElementById('inventory-supplier').value = '';
+        document.getElementById('inventory-supplier-contact').value = '';
+        document.getElementById('inventory-lead-time').value = '7';
         await loadInventory();
     } catch (error) {
         message.innerText = error.message;
@@ -456,6 +477,33 @@ document.getElementById('inventory-form').addEventListener('submit', async (even
 });
 
 document.getElementById('inventory-list').addEventListener('click', async (event) => {
+    const supplierButton = event.target.closest('[data-save-supplier]');
+    if (supplierButton) {
+        const row = supplierButton.closest('.inventory-row');
+        const message = row.querySelector('.supplier-save-message');
+        supplierButton.disabled = true;
+        try {
+            const response = await fetch(`/api/inventory/${encodeURIComponent(supplierButton.dataset.saveSupplier)}/supplier`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    supplierName: row.querySelector('.supplier-name').value,
+                    supplierContact: row.querySelector('.supplier-contact').value,
+                    leadTimeDays: row.querySelector('.supplier-lead-time').value,
+                }),
+            });
+            const data = await response.json();
+            if (response.status === 401) return setSignedOut('Your session has expired. Please sign in again.');
+            if (!response.ok) throw new Error(data.message || 'Could not save supplier details.');
+            message.textContent = data.message;
+            await loadInventory();
+        } catch (error) {
+            message.textContent = error.message || 'Could not save supplier details.';
+        } finally {
+            supplierButton.disabled = false;
+        }
+        return;
+    }
     const button = event.target.closest('[data-restock-id]');
     if (!button) return;
     const row = button.closest('.inventory-row');
@@ -802,6 +850,8 @@ async function loadDailyBriefing(refresh = false) {
 async function generatePromotionPlan() {
     const output = document.getElementById('promotion-plan-output');
     const button = document.getElementById('generate-promotion-plan');
+    const saveForm = document.getElementById('save-promotion-form');
+    saveForm.hidden = true;
     output.hidden = false;
     output.textContent = 'Comparing your last 30 days of sales with current stock…';
     button.disabled = true;
@@ -819,9 +869,156 @@ async function generatePromotionPlan() {
         }
         if (!response.ok) throw new Error(data.message || 'Could not create a promotion plan.');
         output.textContent = data.plan || 'Mitra did not return a promotion plan.';
+        if (data.targetProduct) {
+            saveForm.dataset.product = data.targetProduct;
+            saveForm.dataset.promotion = data.plan || '';
+            document.getElementById('campaign-name').value = `${data.targetProduct} promotion`;
+            document.getElementById('campaign-spend').value = '';
+            document.getElementById('campaign-save-message').textContent = '';
+            saveForm.hidden = false;
+        }
     } catch (error) {
         output.textContent = error.message || 'Could not create a promotion plan.';
     } finally {
+        button.disabled = false;
+    }
+}
+
+async function saveCampaign(event) {
+    event.preventDefault();
+    const form = document.getElementById('save-promotion-form');
+    const message = document.getElementById('campaign-save-message');
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    message.textContent = 'Saving campaign…';
+    try {
+        const spendValue = document.getElementById('campaign-spend').value;
+        const response = await fetch('/api/campaigns', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: document.getElementById('campaign-name').value.trim(),
+                product: form.dataset.product,
+                promotionText: form.dataset.promotion,
+                spend: spendValue,
+            }),
+        });
+        const data = await response.json();
+        if (response.status === 401) {
+            setSignedOut('Your session has expired. Please sign in again.');
+            return;
+        }
+        if (!response.ok) throw new Error(data.message || 'Could not save campaign.');
+        message.textContent = data.message || 'Campaign saved.';
+        await loadCampaigns();
+    } catch (error) {
+        message.textContent = error.message || 'Could not save campaign.';
+    } finally {
+        button.disabled = false;
+    }
+}
+
+function updateSaleCampaignOptions() {
+    const select = document.getElementById('sale-campaign');
+    const productKey = document.getElementById('product').value.trim().toLocaleLowerCase('en');
+    const matching = activeCampaigns.filter((campaign) => campaign.status === 'active' && campaign.productKey === productKey);
+    const selected = select.value;
+    select.replaceChildren(new Option('No campaign', ''));
+    matching.forEach((campaign) => select.add(new Option(`${campaign.name} · ${campaign.product}`, campaign._id)));
+    if (matching.some((campaign) => campaign._id === selected)) select.value = selected;
+    select.disabled = false;
+}
+
+async function loadCampaigns() {
+    const message = document.getElementById('campaign-results-message');
+    const list = document.getElementById('campaign-results-list');
+    message.textContent = 'Loading campaigns…';
+    try {
+        const response = await fetch('/api/campaigns', { cache: 'no-store' });
+        if (response.status === 401) return setSignedOut('Your session has expired. Please sign in again.');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Could not load campaign results.');
+        activeCampaigns = data.campaigns || [];
+        updateSaleCampaignOptions();
+        if (!activeCampaigns.length) {
+            list.replaceChildren();
+            message.textContent = 'No campaigns yet. Build and save a stock-aware promotion plan to start tracking.';
+            return;
+        }
+        list.replaceChildren(...activeCampaigns.map(renderCampaign));
+        message.textContent = `${activeCampaigns.length} ${activeCampaigns.length === 1 ? 'campaign' : 'campaigns'} saved.`;
+    } catch (error) {
+        message.textContent = error.message || 'Could not load campaign results.';
+    }
+}
+
+function renderCampaign(campaign) {
+    const card = document.createElement('article');
+    card.className = 'campaign-result-card';
+    const heading = document.createElement('div');
+    heading.className = 'campaign-card-heading';
+    const titleGroup = document.createElement('div');
+    const title = document.createElement('h4');
+    title.textContent = campaign.name;
+    const product = document.createElement('p');
+    product.textContent = `${campaign.product} · ${campaign.status === 'active' ? 'Active' : 'Completed'}`;
+    titleGroup.append(title, product);
+    const status = document.createElement('span');
+    status.className = `campaign-status${campaign.status === 'active' ? ' is-active' : ''}`;
+    status.textContent = campaign.status === 'active' ? 'Active' : 'Completed';
+    heading.append(titleGroup, status);
+
+    const metrics = document.createElement('div');
+    metrics.className = 'campaign-metrics';
+    const results = campaign.results || {};
+    const metricValues = [
+        ['Tagged units', results.units || 0],
+        ['Tagged orders', results.orders || 0],
+        ['Tagged revenue', formatMoney(results.revenue || 0)],
+    ];
+    if (campaign.spend > 0) metricValues.push(['Revenue ÷ spend', `${Number(results.revenueToSpend || 0).toFixed(2)}×`]);
+    metricValues.forEach(([label, value]) => {
+        const item = document.createElement('div');
+        const metricLabel = document.createElement('span');
+        metricLabel.textContent = label;
+        const metricValue = document.createElement('strong');
+        metricValue.textContent = String(value);
+        item.append(metricLabel, metricValue);
+        metrics.appendChild(item);
+    });
+
+    const details = document.createElement('details');
+    const summary = document.createElement('summary');
+    summary.textContent = 'View saved promotion';
+    const promotion = document.createElement('p');
+    promotion.textContent = campaign.promotionText;
+    details.append(summary, promotion);
+    card.append(heading, metrics, details);
+    if (campaign.status === 'active') {
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'secondary-button close-campaign-button';
+        closeButton.textContent = 'Close campaign';
+        closeButton.addEventListener('click', () => closeCampaign(campaign, closeButton));
+        card.appendChild(closeButton);
+    }
+    return card;
+}
+
+function formatMoney(value) {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(value);
+}
+
+async function closeCampaign(campaign, button) {
+    button.disabled = true;
+    try {
+        const response = await fetch(`/api/campaigns/${encodeURIComponent(campaign._id)}/close`, { method: 'PATCH' });
+        const data = await response.json();
+        if (response.status === 401) return setSignedOut('Your session has expired. Please sign in again.');
+        if (!response.ok) throw new Error(data.message || 'Could not close campaign.');
+        await loadCampaigns();
+    } catch (error) {
+        document.getElementById('campaign-results-message').textContent = error.message || 'Could not close campaign.';
         button.disabled = false;
     }
 }
@@ -850,6 +1047,7 @@ async function loadRecentSales() {
                 sale.product,
                 String(sale.quantity),
                 new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(sale.amount),
+                sale.campaignId?.name || '—',
             ];
             values.forEach((value) => {
                 const cell = document.createElement('td');
@@ -890,7 +1088,7 @@ async function deleteSale(sale, button) {
             return;
         }
         if (!response.ok) throw new Error(data.message || 'Could not delete the sale.');
-        await Promise.all([loadDashboard(), loadRecentSales(), loadInventory()]);
+        await Promise.all([loadDashboard(), loadRecentSales(), loadInventory(), loadCampaigns()]);
         message.textContent = data.message;
         loadDailyBriefing(true);
     } catch (error) {
@@ -917,6 +1115,7 @@ async function loadInventory() {
         renderInventory(items);
         message.innerText = items.length ? `${items.length} ${items.length === 1 ? 'product' : 'products'} tracked.` : 'No inventory yet. Add a product to start tracking stock.';
         await loadNotifications();
+        await loadRestockWorkspace();
     } catch (error) {
         message.innerText = error.message;
         list.replaceChildren();
@@ -929,6 +1128,7 @@ function renderInventory(items) {
     items.forEach((item) => {
         const row = document.createElement('article');
         row.className = 'inventory-row';
+        row.dataset.inventoryId = item._id;
         const details = document.createElement('div');
         details.className = 'inventory-product-details';
         const name = document.createElement('strong');
@@ -936,6 +1136,42 @@ function renderInventory(items) {
         const threshold = document.createElement('span');
         threshold.textContent = `Refill alert at ${item.lowStockThreshold} ${item.lowStockThreshold === 1 ? 'unit' : 'units'}`;
         details.append(name, threshold);
+
+        const supplierDetails = document.createElement('details');
+        supplierDetails.className = 'inventory-supplier-details';
+        const supplierSummary = document.createElement('summary');
+        supplierSummary.textContent = item.supplierName ? `Supplier: ${item.supplierName}` : 'Add supplier details';
+        const supplierForm = document.createElement('div');
+        supplierForm.className = 'inventory-supplier-form';
+        const supplierNameInput = document.createElement('input');
+        supplierNameInput.className = 'supplier-name';
+        supplierNameInput.maxLength = 120;
+        supplierNameInput.placeholder = 'Supplier name';
+        supplierNameInput.value = item.supplierName || '';
+        supplierNameInput.setAttribute('aria-label', `Supplier name for ${item.product}`);
+        const supplierContactInput = document.createElement('input');
+        supplierContactInput.className = 'supplier-contact';
+        supplierContactInput.maxLength = 160;
+        supplierContactInput.placeholder = 'Phone or email';
+        supplierContactInput.value = item.supplierContact || '';
+        supplierContactInput.setAttribute('aria-label', `Supplier contact for ${item.product}`);
+        const leadTimeInput = document.createElement('input');
+        leadTimeInput.className = 'supplier-lead-time';
+        leadTimeInput.type = 'number';
+        leadTimeInput.min = '0';
+        leadTimeInput.max = '365';
+        leadTimeInput.step = '1';
+        leadTimeInput.value = String(item.leadTimeDays ?? 7);
+        leadTimeInput.setAttribute('aria-label', `Supplier lead time in days for ${item.product}`);
+        const supplierSave = document.createElement('button');
+        supplierSave.type = 'button';
+        supplierSave.className = 'secondary-button supplier-save-button';
+        supplierSave.dataset.saveSupplier = item._id;
+        supplierSave.textContent = 'Save supplier';
+        const supplierMessage = document.createElement('small');
+        supplierMessage.className = 'supplier-save-message';
+        supplierForm.append(supplierNameInput, supplierContactInput, leadTimeInput, supplierSave, supplierMessage);
+        supplierDetails.append(supplierSummary, supplierForm);
 
         const stock = document.createElement('div');
         stock.className = 'inventory-stock';
@@ -962,9 +1198,216 @@ function renderInventory(items) {
         button.dataset.restockId = item._id;
         button.textContent = 'Restock';
         restock.append(input, button);
-        row.append(details, stock, restock);
+        row.append(details, stock, restock, supplierDetails);
         list.appendChild(row);
     });
+}
+
+async function loadRestockWorkspace() {
+    const suggestionsMessage = document.getElementById('restock-message');
+    const ordersMessage = document.getElementById('purchase-orders-message');
+    suggestionsMessage.textContent = 'Calculating restock suggestions…';
+    ordersMessage.textContent = 'Loading purchase orders…';
+    try {
+        const [suggestionResponse, orderResponse] = await Promise.all([
+            fetch('/api/purchases/recommendations', { cache: 'no-store' }),
+            fetch('/api/purchases', { cache: 'no-store' }),
+        ]);
+        if (suggestionResponse.status === 401 || orderResponse.status === 401) return setSignedOut('Your session has expired. Please sign in again.');
+        const [suggestionData, orderData] = await Promise.all([suggestionResponse.json(), orderResponse.json()]);
+        if (!suggestionResponse.ok) throw new Error(suggestionData.message || 'Could not calculate restock suggestions.');
+        if (!orderResponse.ok) throw new Error(orderData.message || 'Could not load purchase orders.');
+        renderRestockSuggestions(suggestionData.recommendations || []);
+        renderPurchaseOrders(orderData.orders || []);
+        suggestionsMessage.textContent = suggestionData.recommendations?.length
+            ? `${suggestionData.recommendations.length} item${suggestionData.recommendations.length === 1 ? '' : 's'} may need reordering.`
+            : 'No items currently need reordering based on the available stock and sales data.';
+        ordersMessage.textContent = orderData.orders?.length ? `${orderData.orders.length} recent purchase order${orderData.orders.length === 1 ? '' : 's'}.` : 'No purchase orders yet.';
+    } catch (error) {
+        suggestionsMessage.textContent = error.message || 'Could not load restock suggestions.';
+        ordersMessage.textContent = 'Could not load purchase orders.';
+    }
+}
+
+function renderRestockSuggestions(recommendations) {
+    const list = document.getElementById('restock-suggestions');
+    list.replaceChildren();
+    recommendations.forEach((recommendation) => {
+        const card = document.createElement('article');
+        card.className = 'restock-suggestion-card';
+        const copy = document.createElement('div');
+        copy.className = 'restock-suggestion-copy';
+        const title = document.createElement('h4');
+        title.textContent = recommendation.product;
+        const summary = document.createElement('p');
+        summary.textContent = `${recommendation.quantityOnHand} on hand · ${recommendation.incomingQuantity} units on open orders · refill alert at ${recommendation.lowStockThreshold} · ${recommendation.unitsSoldLast30Days} units sold in 30 days · ${recommendation.leadTimeDays}-day supplier lead time`;
+        const reason = document.createElement('small');
+        reason.textContent = recommendation.reason;
+        copy.append(title, summary, reason);
+        const actions = document.createElement('div');
+        actions.className = 'restock-suggestion-actions';
+        const quantity = document.createElement('input');
+        quantity.className = 'reorder-quantity';
+        quantity.type = 'number';
+        quantity.min = '1';
+        quantity.step = '1';
+        quantity.value = String(recommendation.recommendedQuantity);
+        quantity.setAttribute('aria-label', `Suggested reorder quantity for ${recommendation.product}`);
+        const create = document.createElement('button');
+        create.type = 'button';
+        create.className = 'auth-submit draft-order-button';
+        if (recommendation.supplierName) {
+            create.dataset.createOrder = recommendation.inventoryItemId;
+            create.textContent = 'Create draft order';
+        } else {
+            create.dataset.configureSupplier = recommendation.inventoryItemId;
+            create.textContent = 'Add supplier details';
+        }
+        const explain = document.createElement('button');
+        explain.type = 'button';
+        explain.className = 'secondary-button explain-restock-button';
+        explain.dataset.explainRestock = recommendation.inventoryItemId;
+        explain.textContent = 'Ask Mitra why';
+        actions.append(quantity, create, explain);
+        const explanation = document.createElement('p');
+        explanation.className = 'restock-explanation';
+        explanation.hidden = true;
+        card.append(copy, actions, explanation);
+        list.appendChild(card);
+    });
+}
+
+function renderPurchaseOrders(orders) {
+    const list = document.getElementById('purchase-orders-list');
+    list.replaceChildren();
+    orders.forEach((order) => {
+        const card = document.createElement('article');
+        card.className = 'purchase-order-card';
+        const heading = document.createElement('div');
+        heading.className = 'purchase-order-heading';
+        const title = document.createElement('strong');
+        title.textContent = order.product;
+        const status = document.createElement('span');
+        status.className = `purchase-order-status status-${order.status}`;
+        status.textContent = order.status.replaceAll('-', ' ');
+        heading.append(title, status);
+        const details = document.createElement('p');
+        details.textContent = `${order.supplierName || 'Supplier not set'} · ${order.receivedQuantity} of ${order.quantity} received · ${order.leadTimeDays}-day lead time`;
+        card.append(heading, details);
+        const actions = document.createElement('div');
+        actions.className = 'purchase-order-actions';
+        if (order.status === 'draft') {
+            const place = document.createElement('button');
+            place.type = 'button';
+            place.className = 'secondary-button';
+            place.dataset.placeOrder = order._id;
+            place.textContent = 'Mark as ordered';
+            actions.appendChild(place);
+        } else if (['ordered', 'partially-received'].includes(order.status)) {
+            const remaining = order.quantity - order.receivedQuantity;
+            const amount = document.createElement('input');
+            amount.className = 'receive-quantity';
+            amount.type = 'number';
+            amount.min = '1';
+            amount.max = String(remaining);
+            amount.step = '1';
+            amount.value = String(remaining);
+            amount.setAttribute('aria-label', `Received quantity for ${order.product}`);
+            const receive = document.createElement('button');
+            receive.type = 'button';
+            receive.className = 'secondary-button';
+            receive.dataset.receiveOrder = order._id;
+            receive.textContent = 'Receive stock';
+            actions.append(amount, receive);
+        }
+        card.appendChild(actions);
+        list.appendChild(card);
+    });
+}
+
+async function handleRestockSuggestionAction(event) {
+    const configureButton = event.target.closest('[data-configure-supplier]');
+    const explainButton = event.target.closest('[data-explain-restock]');
+    const createButton = event.target.closest('[data-create-order]');
+    if (configureButton) {
+        const row = [...document.querySelectorAll('.inventory-row')]
+            .find((item) => item.dataset.inventoryId === configureButton.dataset.configureSupplier);
+        const supplierDetails = row?.querySelector('.inventory-supplier-details');
+        if (supplierDetails) {
+            supplierDetails.open = true;
+            supplierDetails.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            supplierDetails.querySelector('.supplier-name').focus();
+        }
+        return;
+    }
+    if (explainButton) {
+        const card = explainButton.closest('.restock-suggestion-card');
+        const output = card.querySelector('.restock-explanation');
+        explainButton.disabled = true;
+        output.hidden = false;
+        output.textContent = 'Mitra is reviewing the sales and lead-time figures…';
+        try {
+            const response = await fetch('/api/purchases/recommendations/explain', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inventoryItemId: explainButton.dataset.explainRestock }),
+            });
+            const data = await response.json();
+            if (response.status === 401) return setSignedOut('Your session has expired. Please sign in again.');
+            if (!response.ok) throw new Error(data.message || 'Could not explain the suggestion.');
+            output.textContent = data.explanation;
+        } catch (error) {
+            output.textContent = error.message || 'Could not explain the suggestion.';
+        } finally {
+            explainButton.disabled = false;
+        }
+        return;
+    }
+    if (createButton) {
+        const card = createButton.closest('.restock-suggestion-card');
+        const quantity = card.querySelector('.reorder-quantity').value;
+        createButton.disabled = true;
+        try {
+            const response = await fetch('/api/purchases', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inventoryItemId: createButton.dataset.createOrder, quantity }),
+            });
+            const data = await response.json();
+            if (response.status === 401) return setSignedOut('Your session has expired. Please sign in again.');
+            if (!response.ok) throw new Error(data.message || 'Could not create a draft order.');
+            document.getElementById('restock-message').textContent = data.message;
+            await loadRestockWorkspace();
+        } catch (error) {
+            document.getElementById('restock-message').textContent = error.message || 'Could not create a draft order.';
+            createButton.disabled = false;
+        }
+    }
+}
+
+async function handlePurchaseOrderAction(event) {
+    const placeButton = event.target.closest('[data-place-order]');
+    const receiveButton = event.target.closest('[data-receive-order]');
+    if (!placeButton && !receiveButton) return;
+    const button = placeButton || receiveButton;
+    const url = placeButton
+        ? `/api/purchases/${encodeURIComponent(button.dataset.placeOrder)}/order`
+        : `/api/purchases/${encodeURIComponent(button.dataset.receiveOrder)}/receive`;
+    const options = placeButton
+        ? { method: 'PATCH' }
+        : { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: button.closest('.purchase-order-card').querySelector('.receive-quantity').value }) };
+    button.disabled = true;
+    try {
+        const response = await fetch(url, options);
+        const data = await response.json();
+        if (response.status === 401) return setSignedOut('Your session has expired. Please sign in again.');
+        if (!response.ok) throw new Error(data.message || 'Could not update the purchase order.');
+        document.getElementById('purchase-orders-message').textContent = data.message;
+        await loadInventory();
+    } catch (error) {
+        document.getElementById('purchase-orders-message').textContent = error.message || 'Could not update the purchase order.';
+        button.disabled = false;
+    }
 }
 
 async function loadNotifications() {
@@ -1041,7 +1484,7 @@ async function addSale() {
         const response = await fetch('/api/sales', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ product, quantity, amount }),
+            body: JSON.stringify({ product, quantity, amount, campaignId: document.getElementById('sale-campaign').value }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || 'Could not add the sale.');
@@ -1049,9 +1492,8 @@ async function addSale() {
         document.getElementById('product').value = '';
         document.getElementById('quantity').value = '';
         document.getElementById('amount').value = '';
-        loadDashboard();
-        loadRecentSales();
-        loadInventory();
+        document.getElementById('sale-campaign').value = '';
+        await Promise.all([loadDashboard(), loadRecentSales(), loadInventory(), loadCampaigns()]);
     } catch (error) {
         message.innerText = error.message;
     }
