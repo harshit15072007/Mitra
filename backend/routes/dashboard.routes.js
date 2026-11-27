@@ -4,7 +4,11 @@ const Sale = require('../models/sale.models');
 const User = require('../models/user.models');
 const InventoryItem = require('../models/inventory.models');
 const DailyBriefing = require('../models/dailybriefing.models');
+const Campaign = require('../models/campaign.models');
+const PurchaseOrder = require('../models/purchaseorder.models');
+const Notification = require('../models/notification.models');
 const askBusinessAI = require('../services/ai.services');
+const getRestockRecommendations = require('../services/restock.services');
 
 const router = express.Router();
 const RANGE_DAYS = { '7d': 7, '30d': 30, '90d': 90 };
@@ -60,6 +64,17 @@ async function aggregateSalesInsights(userId, range) {
                 { $sort: { revenue: -1, units: -1, _id: 1 } },
                 { $limit: 5 },
             ],
+            productSales: [
+                { $group: {
+                    _id: { $toLower: { $trim: { input: '$product' } } },
+                    productName: { $first: '$product' },
+                    units: { $sum: '$quantity' },
+                    revenue: { $sum: '$amount' },
+                    orders: { $sum: 1 },
+                } },
+                { $sort: { units: -1, revenue: -1, _id: 1 } },
+                { $limit: 100 },
+            ],
         } },
     ]);
 
@@ -67,6 +82,7 @@ async function aggregateSalesInsights(userId, range) {
         summary: result?.summary?.[0] || { sales: 0, orders: 0, products: 0 },
         trend: result?.trend || [],
         topProducts: result?.topProducts || [],
+        productSales: result?.productSales || [],
     };
 }
 
@@ -253,8 +269,73 @@ router.post('/ask-ai', async (req, res) => {
         const inventory = await InventoryItem.find({ merchantId: req.userId })
             .sort({ quantity: 1 })
             .limit(100)
-            .select('product quantity lowStockThreshold')
+            .select('product quantity lowStockThreshold supplierName leadTimeDays')
             .lean();
+        const customerGroups = await Sale.aggregate([
+            { $match: { ...salesMatchFor(req.userId, range), customerId: { $exists: true, $ne: null } } },
+            { $group: {
+                _id: '$customerId',
+                name: { $first: '$customerName' },
+                orders: { $sum: 1 },
+                revenue: { $sum: '$amount' },
+                units: { $sum: '$quantity' },
+                lastPurchase: { $max: '$createdAt' },
+                products: { $addToSet: '$product' },
+            } },
+            { $sort: { orders: -1, revenue: -1 } },
+        ]);
+        const customerInsights = {
+            customersWithRecordedPurchases: customerGroups.length,
+            repeatCustomers: customerGroups.filter((customer) => customer.orders > 1).length,
+            repeatCustomerRevenue: customerGroups.filter((customer) => customer.orders > 1).reduce((sum, customer) => sum + customer.revenue, 0),
+            topCustomers: customerGroups.slice(0, 10).map((customer) => ({
+                name: customer.name || 'Customer',
+                orders: customer.orders,
+                revenue: customer.revenue,
+                units: customer.units,
+                products: customer.products.slice(0, 10),
+                lastPurchase: customer.lastPurchase,
+            })),
+        };
+        const [campaigns, campaignTotals, purchaseOrders, restockRecommendations, notifications, latestSales] = await Promise.all([
+            Campaign.find({ merchantId: req.userId }).sort({ createdAt: -1 }).limit(100).lean(),
+            Sale.aggregate([
+                { $match: { ...salesMatchFor(req.userId, range), campaignId: { $exists: true, $ne: null } } },
+                { $group: {
+                    _id: '$campaignId',
+                    orders: { $sum: 1 },
+                    units: { $sum: '$quantity' },
+                    revenue: { $sum: '$amount' },
+                } },
+            ]),
+            PurchaseOrder.find({ merchantId: req.userId })
+                .sort({ createdAt: -1 }).limit(100)
+                .select('product quantity receivedQuantity supplierName leadTimeDays status createdAt orderedAt receivedAt')
+                .lean(),
+            getRestockRecommendations(req.userId),
+            Notification.find({ merchantId: req.userId })
+                .sort({ createdAt: -1 }).limit(20)
+                .select('type product quantity threshold message readAt createdAt')
+                .lean(),
+            Sale.find(salesMatchFor(req.userId, range))
+                .sort({ createdAt: -1 }).limit(20)
+                .select('product quantity amount createdAt customerName campaignId')
+                .populate('campaignId', 'name')
+                .lean(),
+        ]);
+        const campaignTotalsById = new Map(campaignTotals.map((entry) => [entry._id.toString(), entry]));
+        const campaignInsights = campaigns.map((campaign) => {
+            const metrics = campaignTotalsById.get(campaign._id.toString()) || { orders: 0, units: 0, revenue: 0 };
+            return {
+                name: campaign.name,
+                product: campaign.product,
+                status: campaign.status,
+                promotionText: campaign.promotionText,
+                spend: campaign.spend,
+                ...metrics,
+                revenueToSpend: campaign.spend > 0 ? metrics.revenue / campaign.spend : null,
+            };
+        });
         const answer = await askBusinessAI(question, {
             profession: merchant.profession || 'General retailer',
             period: RANGE_LABELS[range],
@@ -264,11 +345,49 @@ router.post('/ask-ai', async (req, res) => {
                 units: product.units,
                 revenue: product.revenue,
             })),
+            productSales: insights.productSales.map((product) => ({
+                product: product.productName || product._id,
+                units: product.units,
+                revenue: product.revenue,
+                orders: product.orders,
+            })),
+            salesTrend: insights.trend,
+            latestSales: latestSales.map((sale) => ({
+                product: sale.product,
+                quantity: sale.quantity,
+                amount: sale.amount,
+                createdAt: sale.createdAt,
+                customerName: sale.customerName || null,
+                campaignName: sale.campaignId?.name || null,
+            })),
             inventory: inventory.map((item) => ({
                 product: item.product,
                 quantity: item.quantity,
                 lowStockThreshold: item.lowStockThreshold,
                 lowStock: item.quantity <= item.lowStockThreshold,
+                supplierName: item.supplierName,
+                leadTimeDays: item.leadTimeDays ?? 7,
+            })),
+            customerInsights,
+            campaignInsights,
+            purchaseOrders: purchaseOrders.map((order) => ({
+                product: order.product,
+                quantity: order.quantity,
+                receivedQuantity: order.receivedQuantity,
+                supplierName: order.supplierName,
+                leadTimeDays: order.leadTimeDays,
+                status: order.status,
+                createdAt: order.createdAt,
+            })),
+            restockRecommendations,
+            notifications: notifications.map((notification) => ({
+                type: notification.type,
+                product: notification.product,
+                quantity: notification.quantity,
+                threshold: notification.threshold,
+                message: notification.message,
+                read: Boolean(notification.readAt),
+                createdAt: notification.createdAt,
             })),
         }, history);
         return res.json({ answer, periodLabel: RANGE_LABELS[range] });

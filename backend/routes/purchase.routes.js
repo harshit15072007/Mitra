@@ -2,90 +2,15 @@ const express = require('express');
 const mongoose = require('mongoose');
 const InventoryItem = require('../models/inventory.models');
 const PurchaseOrder = require('../models/purchaseorder.models');
-const Sale = require('../models/sale.models');
 const askBusinessAI = require('../services/ai.services');
+const getRestockRecommendations = require('../services/restock.services');
 const { evaluateLowStock } = require('../services/inventory.services');
 
 const router = express.Router();
 
-async function getRecommendations(merchantId) {
-    const items = await InventoryItem.find({ merchantId }).sort({ product: 1 }).lean();
-    const openOrders = await PurchaseOrder.find({
-        merchantId,
-        status: { $in: ['draft', 'ordered', 'partially-received'] },
-    }).select('inventoryItemId quantity receivedQuantity').lean();
-    const incomingByItem = new Map();
-    openOrders.forEach((order) => {
-        const key = order.inventoryItemId.toString();
-        incomingByItem.set(key, (incomingByItem.get(key) || 0) + Math.max(0, order.quantity - order.receivedQuantity));
-    });
-    const now = new Date();
-    const start = new Date(now);
-    start.setUTCHours(0, 0, 0, 0);
-    start.setUTCDate(start.getUTCDate() - 29);
-    const start7Days = new Date(now);
-    start7Days.setUTCHours(0, 0, 0, 0);
-    start7Days.setUTCDate(start7Days.getUTCDate() - 6);
-    const sales = await Sale.aggregate([
-        { $match: { merchantId: new mongoose.Types.ObjectId(merchantId), createdAt: { $gte: start } } },
-        { $group: {
-            _id: { $toLower: { $trim: { input: '$product' } } },
-            units: { $sum: '$quantity' },
-            orders: { $sum: 1 },
-            unitsLast7Days: { $sum: { $cond: [{ $gte: ['$createdAt', start7Days] }, '$quantity', 0] } },
-            ordersLast7Days: { $sum: { $cond: [{ $gte: ['$createdAt', start7Days] }, 1, 0] } },
-            firstSaleAt: { $min: '$createdAt' },
-            lastSaleAt: { $max: '$createdAt' },
-        } },
-    ]);
-    const salesMap = new Map(sales.map((entry) => [entry._id, entry]));
-    return items.map((item) => {
-        const salesInfo = salesMap.get(item.productKey) || {};
-        const unitsSoldLast30Days = salesInfo.units || 0;
-        const orderCountLast30Days = salesInfo.orders || 0;
-        const unitsSoldLast7Days = salesInfo.unitsLast7Days || 0;
-        const ordersLast7Days = salesInfo.ordersLast7Days || 0;
-        const observedDays = salesInfo.firstSaleAt
-            ? Math.max(1, Math.min(30, Math.ceil((now.getTime() - new Date(salesInfo.firstSaleAt).getTime()) / 86400000)))
-            : 30;
-        const averageDailyUnits = unitsSoldLast30Days / observedDays;
-        const typicalDaysBetweenOrders = orderCountLast30Days > 1
-            ? Math.max(1, Math.round((new Date(salesInfo.lastSaleAt).getTime() - new Date(salesInfo.firstSaleAt).getTime()) / 86400000 / (orderCountLast30Days - 1)))
-            : null;
-        const leadTimeDays = item.leadTimeDays ?? 7;
-        const incomingQuantity = incomingByItem.get(item._id.toString()) || 0;
-        const targetStock = Math.max(item.lowStockThreshold + 1, Math.ceil(averageDailyUnits * (leadTimeDays + 7)));
-        const recommendedQuantity = Math.max(0, targetStock - item.quantity - incomingQuantity);
-        const needsReorder = item.quantity + incomingQuantity <= item.lowStockThreshold || recommendedQuantity > 0;
-        return {
-            inventoryItemId: item._id,
-            product: item.product,
-            quantityOnHand: item.quantity,
-            incomingQuantity,
-            lowStockThreshold: item.lowStockThreshold,
-            supplierName: item.supplierName || '',
-            supplierContact: item.supplierContact || '',
-            leadTimeDays,
-            unitsSoldLast30Days,
-            unitsSoldLast7Days,
-            ordersLast7Days,
-            orderCountLast30Days,
-            observedDays,
-            averageDailyUnits: Number(averageDailyUnits.toFixed(2)),
-            typicalDaysBetweenOrders,
-            targetStock,
-            recommendedQuantity: needsReorder ? Math.max(1, recommendedQuantity) : 0,
-            needsReorder,
-            reason: unitsSoldLast30Days
-                ? `${unitsSoldLast30Days} units sold across ${orderCountLast30Days} orders in the last 30 days; the observed pace is about ${Number(averageDailyUnits.toFixed(2))} units per day over ${observedDays} days${typicalDaysBetweenOrders ? `, with orders about every ${typicalDaysBetweenOrders} days` : ''}.`
-                : 'No sales were recorded in the last 30 days. This suggestion uses the refill threshold plus one unit as a basic minimum.',
-        };
-    }).filter((item) => item.needsReorder);
-}
-
 router.get('/recommendations', async (req, res) => {
     try {
-        return res.json({ recommendations: await getRecommendations(req.userId) });
+        return res.json({ recommendations: await getRestockRecommendations(req.userId) });
     } catch {
         return res.status(500).json({ message: 'Could not calculate restock suggestions.' });
     }
@@ -111,7 +36,7 @@ router.post('/', async (req, res) => {
         const item = await InventoryItem.findOne({ _id: itemId, merchantId: req.userId }).lean();
         if (!item) return res.status(404).json({ message: 'Inventory item not found.' });
         if (!item.supplierName) return res.status(409).json({ message: 'Add a supplier to this inventory item before creating its order.' });
-        const recommendations = await getRecommendations(req.userId);
+        const recommendations = await getRestockRecommendations(req.userId);
         const recommendation = recommendations.find((entry) => entry.inventoryItemId.toString() === itemId);
         if (!recommendation) return res.status(409).json({ message: 'This item does not currently need a reorder. Refresh the suggestions and try again.' });
         const order = await PurchaseOrder.create({
@@ -199,19 +124,19 @@ router.post('/recommendations/explain', async (req, res) => {
     const itemId = typeof req.body?.inventoryItemId === 'string' ? req.body.inventoryItemId : '';
     if (!mongoose.isValidObjectId(itemId)) return res.status(400).json({ message: 'Choose an inventory item.' });
     try {
-        const recommendations = await getRecommendations(req.userId);
+        const recommendations = await getRestockRecommendations(req.userId);
         const recommendation = recommendations.find((item) => item.inventoryItemId.toString() === itemId);
         if (!recommendation) return res.status(404).json({ message: 'This item no longer has a restock suggestion.' });
         const merchant = await require('../models/user.models').findById(req.userId).select('profession').lean();
         let explanation;
         try {
             explanation = await askBusinessAI(
-                'Explain this restock suggestion in plain language in 2-3 short sentences. State the recorded sales period, current stock, refill threshold, supplier lead time, open-order quantity, and suggested quantity. When recent sales exist, describe the seven-day buffer. When recent sales are zero, describe the refill-threshold-plus-one fallback and do not claim the lead-time buffer affected the quantity. Make clear this is a planning estimate, not a guarantee. Do not invent supplier availability, costs, or demand.',
+                'Explain this restock suggestion in plain language in 2-3 short sentences. State the units sold and observed timing between sale days when available, the estimated units-per-day pace, current stock, open-order quantity, supplier lead time, and suggested order quantity. Explain that the estimate covers supplier lead time plus a 7-day buffer. If sales occurred on only one day, mention the conservative 30-day average. If there are no recent sales, explain that the quantity uses the refill threshold plus one as a fallback. Make clear this is an estimate from recorded sales, not a guarantee. Do not invent supplier availability, costs, or demand.',
                 { profession: merchant?.profession || 'General retailer', period: 'Last 30 days', recommendation },
             );
         } catch {
             explanation = recommendation.unitsSoldLast30Days
-                ? `${recommendation.unitsSoldLast30Days} units sold over the last 30 days averages about ${recommendation.averageDailyUnits} per day. The target covers ${recommendation.leadTimeDays} lead-time days plus a 7-day buffer; after current stock and ${recommendation.incomingQuantity} units on open orders, the estimate is ${recommendation.recommendedQuantity} units. This is a planning estimate, not a guarantee.`
+                ? `${recommendation.unitsSoldLast30Days} units sold across ${recommendation.saleDaysCount} sale days in the last 30 days${recommendation.typicalDaysBetweenSales ? `, about every ${recommendation.typicalDaysBetweenSales} days` : ''}, or an estimated ${recommendation.averageDailyUnits} units per day. Covering the ${recommendation.leadTimeDays}-day lead time plus 7 days, after ${recommendation.quantityOnHand} on hand and ${recommendation.incomingQuantity} incoming, suggests ordering ${recommendation.recommendedQuantity} units. This is an estimate, not a guarantee.`
                 : `No sales were recorded in the last 30 days, so the estimate uses the refill threshold (${recommendation.lowStockThreshold}) plus one unit, minus current stock and ${recommendation.incomingQuantity} units on open orders. The suggested amount is ${recommendation.recommendedQuantity} units; this is a basic planning estimate, not a demand forecast.`;
         }
         return res.json({ explanation });

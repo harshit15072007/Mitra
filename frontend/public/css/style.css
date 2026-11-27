@@ -1436,10 +1436,30 @@ input:focus {
 .sale-submit { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin-top: 18px; border-radius: 8px; }
 .sale-submit span { font-size: 18px; }
 .sales-history { overflow: hidden; }
-.sales-table { min-width: 570px; }
+.sales-table { min-width: 680px; }
 .sales-table th, .sales-table td { padding: 12px 9px; }
+.sale-entry-card > input { box-sizing: border-box; width: 100%; }
 .delete-sale-button { width: auto; padding: 6px 9px; border: 1px solid rgba(225, 92, 98, 0.32); border-radius: 7px; background: rgba(225, 92, 98, 0.08); color: #ff9a9a; font-size: 11px; }
 .delete-sale-button:hover:not(:disabled) { background: rgba(225, 92, 98, 0.18); color: #ffc0c2; }
+.customers-list-card { margin-top: 18px; }
+.customers-list-card .section-heading-row h2 { margin: 7px 0 0; color: var(--text-main); font-size: 19px; }
+.customers-list-card .section-heading-row p:last-child { margin: 6px 0 0; color: var(--text-muted); font-size: 12px; }
+.customers-list-card .section-heading-row .secondary-button { width: auto; flex: 0 0 auto; padding: 8px 11px; font-size: 11px; }
+.customers-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 12px; }
+.customer-card { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel-raised); }
+.customer-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.customer-card-heading h3 { margin: 0; color: var(--text-main); font-size: 14px; }
+.customer-card-heading p { margin: 5px 0 0; color: var(--text-soft); font-size: 11px; overflow-wrap: anywhere; }
+.customer-type { max-width: 130px; padding: 5px 8px; border-radius: 99px; background: rgba(120, 164, 255, 0.1); color: var(--blue); font-size: 9px; text-align: center; }
+.customer-type.is-repeat { background: rgba(112, 216, 189, 0.11); color: var(--mint); }
+.customer-card-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 15px 0 12px; }
+.customer-card-metrics > div { display: grid; gap: 5px; min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: 8px; }
+.customer-card-metrics span { color: var(--text-soft); font-size: 9px; }
+.customer-card-metrics strong { overflow-wrap: anywhere; color: var(--text-main); font-size: 11px; }
+.customer-history-button { width: auto; padding: 8px 10px; font-size: 10px; }
+.customer-history { max-height: 220px; overflow-y: auto; margin-top: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+.customer-history p { margin: 0; padding: 8px 0; border-bottom: 1px solid var(--line); color: var(--text-muted); font-size: 10px; line-height: 1.5; }
+.customer-history p:last-child { border-bottom: 0; }
 
 .copilot-card { position: relative; max-width: 860px; margin: 18px auto 0; padding: clamp(25px, 5vw, 48px); border-radius: 16px; background: radial-gradient(ellipse at 100% 0%, rgba(80, 129, 217, 0.13), transparent 43%), var(--panel-bg); }
 .copilot-mark { display: grid; width: 42px; height: 42px; margin-bottom: 20px; place-items: center; border: 1px solid rgba(112, 216, 189, 0.25); border-radius: 12px; background: rgba(112, 216, 189, 0.09); color: var(--mint); font-size: 23px; }

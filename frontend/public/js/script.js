@@ -25,6 +25,7 @@ let miniConversation = [];
 let copilotConversation = [];
 let copilotRequestPending = false;
 let activeCampaigns = [];
+let knownCustomers = [];
 
 function addMiniChatMessage(text, role, pending = false) {
     const message = document.createElement('p');
@@ -227,15 +228,16 @@ function setSignedIn(user) {
     loadRecentSales();
     loadInventory();
     loadCampaigns();
+    loadCustomers();
 }
 
 function getPageFromHash() {
     const requestedPage = window.location.hash.slice(1);
-    return ['overview', 'sales', 'inventory', 'copilot'].includes(requestedPage) ? requestedPage : 'overview';
+    return ['overview', 'sales', 'customers', 'inventory', 'copilot'].includes(requestedPage) ? requestedPage : 'overview';
 }
 
 function setActivePage(page, updateHistory = true) {
-    const titles = { overview: 'Overview', sales: 'Sales', inventory: 'Inventory', copilot: 'AI Copilot' };
+    const titles = { overview: 'Overview', sales: 'Sales', customers: 'Customers', inventory: 'Inventory', copilot: 'AI Copilot' };
     if (!titles[page]) page = 'overview';
     document.querySelectorAll('[data-app-page]').forEach((section) => {
         section.hidden = section.dataset.appPage !== page;
@@ -284,6 +286,10 @@ function setSignedOut(message = '') {
     document.getElementById('campaign-results-list').replaceChildren();
     document.getElementById('campaign-results-message').textContent = '';
     document.getElementById('sale-campaign').replaceChildren(new Option('No campaign', ''));
+    document.getElementById('customers-list').replaceChildren();
+    document.getElementById('customers-message').textContent = '';
+    document.getElementById('customer-suggestions').replaceChildren();
+    knownCustomers = [];
     activeCampaigns = [];
     document.getElementById('landing-message').innerText = message;
     showAuthForm('login');
@@ -413,6 +419,8 @@ document.getElementById('logout-button').addEventListener('click', async () => {
 });
 
 document.getElementById('refresh-sales').addEventListener('click', loadRecentSales);
+document.getElementById('refresh-customers').addEventListener('click', loadCustomers);
+document.getElementById('customers-list').addEventListener('click', handleCustomerHistoryClick);
 document.getElementById('refresh-inventory').addEventListener('click', loadInventory);
 document.getElementById('refresh-restock').addEventListener('click', loadRestockWorkspace);
 document.getElementById('restock-suggestions').addEventListener('click', handleRestockSuggestionAction);
@@ -1047,6 +1055,7 @@ async function loadRecentSales() {
                 sale.product,
                 String(sale.quantity),
                 new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(sale.amount),
+                sale.customerId?.name || sale.customerName || '—',
                 sale.campaignId?.name || '—',
             ];
             values.forEach((value) => {
@@ -1073,6 +1082,116 @@ async function loadRecentSales() {
     }
 }
 
+async function loadCustomers() {
+    const message = document.getElementById('customers-message');
+    const list = document.getElementById('customers-list');
+    message.textContent = 'Loading customers…';
+    try {
+        const response = await fetch('/api/customers', { cache: 'no-store' });
+        if (response.status === 401) return setSignedOut('Your session has expired. Please sign in again.');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Could not load customers.');
+        const customers = data.customers || [];
+        knownCustomers = customers;
+        document.getElementById('customer-suggestions').replaceChildren(...customers.map((customer) => {
+            const option = document.createElement('option');
+            option.value = customer.name;
+            option.label = customer.contact ? `${customer.name} · ${customer.contact}` : customer.name;
+            return option;
+        }));
+        const repeatCustomers = customers.filter((customer) => customer.metrics.orders > 1);
+        document.getElementById('customers-total').textContent = String(customers.length);
+        document.getElementById('customers-repeat').textContent = String(repeatCustomers.length);
+        document.getElementById('customers-repeat-revenue').textContent = formatMoney(repeatCustomers.reduce((sum, customer) => sum + customer.metrics.revenue, 0));
+        list.replaceChildren(...customers.map(renderCustomer));
+        message.textContent = customers.length
+            ? `${customers.length} customer${customers.length === 1 ? '' : 's'} have recorded purchase history.`
+            : 'No customers tracked yet. Add a customer name when recording a sale to start a purchase history.';
+    } catch (error) {
+        message.textContent = error.message || 'Could not load customers.';
+        list.replaceChildren();
+    }
+}
+
+function renderCustomer(customer) {
+    const card = document.createElement('article');
+    card.className = 'customer-card';
+    const heading = document.createElement('div');
+    heading.className = 'customer-card-heading';
+    const identity = document.createElement('div');
+    const name = document.createElement('h3');
+    name.textContent = customer.name;
+    const contact = document.createElement('p');
+    contact.textContent = customer.contact || 'No contact details recorded';
+    identity.append(name, contact);
+    const type = document.createElement('span');
+    type.className = `customer-type${customer.metrics.orders > 1 ? ' is-repeat' : ''}`;
+    type.textContent = customer.metrics.orders > 1 ? 'Repeat customer' : '1 recorded purchase';
+    heading.append(identity, type);
+    const metrics = document.createElement('div');
+    metrics.className = 'customer-card-metrics';
+    [
+        ['Orders', customer.metrics.orders],
+        ['Units', customer.metrics.units],
+        ['Recorded spend', formatMoney(customer.metrics.revenue)],
+        ['Last purchase', customer.metrics.lastPurchase ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(customer.metrics.lastPurchase)) : '—'],
+    ].forEach(([label, value]) => {
+        const block = document.createElement('div');
+        const caption = document.createElement('span');
+        caption.textContent = label;
+        const figure = document.createElement('strong');
+        figure.textContent = String(value);
+        block.append(caption, figure);
+        metrics.appendChild(block);
+    });
+    const history = document.createElement('div');
+    history.className = 'customer-history';
+    history.hidden = true;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'secondary-button customer-history-button';
+    button.dataset.customerHistory = customer._id;
+    button.textContent = 'View purchase history';
+    card.append(heading, metrics, button, history);
+    return card;
+}
+
+async function handleCustomerHistoryClick(event) {
+    const button = event.target.closest('[data-customer-history]');
+    if (!button) return;
+    const card = button.closest('.customer-card');
+    const history = card.querySelector('.customer-history');
+    if (!history.hidden) {
+        history.hidden = true;
+        button.textContent = 'View purchase history';
+        return;
+    }
+    button.disabled = true;
+    button.textContent = 'Loading history…';
+    try {
+        const response = await fetch(`/api/customers/${encodeURIComponent(button.dataset.customerHistory)}/history`, { cache: 'no-store' });
+        if (response.status === 401) return setSignedOut('Your session has expired. Please sign in again.');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Could not load purchase history.');
+        history.replaceChildren();
+        if (!data.sales?.length) history.textContent = 'No purchases recorded.';
+        else data.sales.forEach((sale) => {
+            const row = document.createElement('p');
+            row.textContent = `${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(sale.createdAt))} · ${sale.product} × ${sale.quantity} · ${formatMoney(sale.amount)}`;
+            history.appendChild(row);
+        });
+        history.hidden = false;
+        button.textContent = 'Hide purchase history';
+    } catch (error) {
+        history.replaceChildren();
+        history.textContent = error.message || 'Could not load purchase history.';
+        history.hidden = false;
+        button.textContent = 'Hide purchase history';
+    } finally {
+        button.disabled = false;
+    }
+}
+
 async function deleteSale(sale, button) {
     const confirmed = window.confirm(`Delete this sale of ${sale.product}? The amount will be removed from sales totals and the quantity returned to inventory.`);
     if (!confirmed) return;
@@ -1088,7 +1207,7 @@ async function deleteSale(sale, button) {
             return;
         }
         if (!response.ok) throw new Error(data.message || 'Could not delete the sale.');
-        await Promise.all([loadDashboard(), loadRecentSales(), loadInventory(), loadCampaigns()]);
+        await Promise.all([loadDashboard(), loadRecentSales(), loadInventory(), loadCampaigns(), loadCustomers()]);
         message.textContent = data.message;
         loadDailyBriefing(true);
     } catch (error) {
@@ -1240,9 +1359,14 @@ function renderRestockSuggestions(recommendations) {
         const title = document.createElement('h4');
         title.textContent = recommendation.product;
         const summary = document.createElement('p');
-        summary.textContent = `${recommendation.quantityOnHand} on hand · ${recommendation.incomingQuantity} units on open orders · refill alert at ${recommendation.lowStockThreshold} · ${recommendation.unitsSoldLast30Days} units sold in 30 days · ${recommendation.leadTimeDays}-day supplier lead time`;
+        const paceLabel = recommendation.typicalDaysBetweenSales
+            ? `sales about every ${recommendation.typicalDaysBetweenSales} days`
+            : recommendation.unitsSoldLast30Days
+                ? 'sales recorded on one day; using a conservative 30-day average'
+                : 'no recent sales; using refill threshold';
+        summary.textContent = `${recommendation.quantityOnHand} on hand · ${recommendation.incomingQuantity} units on open orders · refill alert at ${recommendation.lowStockThreshold}`;
         const reason = document.createElement('small');
-        reason.textContent = recommendation.reason;
+        reason.textContent = `${recommendation.reason} Estimated demand: ${recommendation.averageDailyUnits} units/day; ${paceLabel}. Suggested order: ${recommendation.recommendedQuantity} units to cover ${recommendation.leadTimeDays}-day supplier lead time plus a 7-day buffer.`;
         copy.append(title, summary, reason);
         const actions = document.createElement('div');
         actions.className = 'restock-suggestion-actions';
@@ -1474,9 +1598,17 @@ async function addSale() {
     const product = document.getElementById('product').value.trim();
     const quantity = document.getElementById('quantity').value;
     const amount = document.getElementById('amount').value;
+    const customerName = document.getElementById('sale-customer-name').value.trim();
+    const enteredContact = document.getElementById('sale-customer-contact').value.trim();
+    const matchedCustomer = knownCustomers.find((customer) => customer.name.toLocaleLowerCase('en') === customerName.toLocaleLowerCase('en'));
+    const customerContact = enteredContact || matchedCustomer?.contact || '';
     const message = document.getElementById('message');
     if (!product || !quantity || amount === '') {
         message.innerText = 'Enter a product, quantity, and total amount.';
+        return;
+    }
+    if (customerContact && !customerName) {
+        message.innerText = 'Enter a customer name when adding their contact details.';
         return;
     }
 
@@ -1484,7 +1616,14 @@ async function addSale() {
         const response = await fetch('/api/sales', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ product, quantity, amount, campaignId: document.getElementById('sale-campaign').value }),
+            body: JSON.stringify({
+                product,
+                quantity,
+                amount,
+                campaignId: document.getElementById('sale-campaign').value,
+                customerName,
+                customerContact,
+            }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || 'Could not add the sale.');
@@ -1493,7 +1632,9 @@ async function addSale() {
         document.getElementById('quantity').value = '';
         document.getElementById('amount').value = '';
         document.getElementById('sale-campaign').value = '';
-        await Promise.all([loadDashboard(), loadRecentSales(), loadInventory(), loadCampaigns()]);
+        document.getElementById('sale-customer-name').value = '';
+        document.getElementById('sale-customer-contact').value = '';
+        await Promise.all([loadDashboard(), loadRecentSales(), loadInventory(), loadCampaigns(), loadCustomers()]);
     } catch (error) {
         message.innerText = error.message;
     }
