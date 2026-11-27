@@ -51,7 +51,7 @@
                     <div class="account-menu">
                         <button id="account-menu-trigger" type="button" class="account-logo" aria-label="Open account menu" aria-expanded="false" aria-controls="account-dropdown">M</button>
                         <div id="account-dropdown" class="account-dropdown" hidden>
-                            <button id="edit-business-profile" type="button">Business type</button>
+                            <button id="edit-business-profile" type="button">Business profile</button>
                             <button id="logout-button" type="button">Sign out</button>
                         </div>
                     </div>
@@ -119,6 +119,8 @@
                     <input id="register-username" type="text" autocomplete="username" minlength="2" maxlength="50" required>
                     <label for="register-email">Email</label>
                     <input id="register-email" type="email" autocomplete="email" required>
+                    <label for="register-business-name">What is your business called?</label>
+                    <input id="register-business-name" type="text" autocomplete="organization" minlength="2" maxlength="100" placeholder="e.g. Harshit's Corner Shop" required>
                     <label for="register-profession">What kind of business do you run?</label>
                     <input id="register-profession" type="text" list="business-types" minlength="2" maxlength="80" placeholder="e.g. Grocery store" autocomplete="organization-title" aria-describedby="profession-hint" required>
                     <small id="profession-hint" class="field-hint">Mitra uses this to tailor business suggestions to you.</small>
@@ -153,12 +155,14 @@
             <section class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="profile-title">
                 <button id="close-profile-button" type="button" class="auth-close" aria-label="Close business profile">×</button>
                 <p class="page-eyebrow">PERSONALIZE MITRA</p>
-                <h2 id="profile-title">Your business type</h2>
-                <p class="auth-intro">Mitra uses this to make its recommendations relevant to your work.</p>
+                <h2 id="profile-title">Your business profile</h2>
+                <p class="auth-intro">Mitra uses your business name in replies and your business type to tailor recommendations.</p>
                 <form id="profile-form">
+                    <label for="profile-business-name">Business name</label>
+                    <input id="profile-business-name" type="text" autocomplete="organization" minlength="2" maxlength="100" placeholder="e.g. Harshit's Corner Shop" required>
                     <label for="profile-profession">What kind of business do you run?</label>
                     <input id="profile-profession" type="text" list="business-types" minlength="2" maxlength="80" placeholder="e.g. Grocery store" required>
-                    <button type="submit" class="auth-submit">Save business type</button>
+                    <button type="submit" class="auth-submit">Save business profile</button>
                     <p id="profile-message" role="status"></p>
                 </form>
             </section>
@@ -294,6 +298,6 @@
             <span class="mini-trigger-icon" aria-hidden="true">✧</span><span>Ask Mitra</span><span class="mini-trigger-status" aria-hidden="true"></span>
         </button>
     </div>
-    <script src="js/script.js?v=customers-2"></script>
+    <script src="js/script.js?v=business-name-1"></script>
 </body>
 </html>

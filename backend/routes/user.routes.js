@@ -9,6 +9,7 @@ function publicUser(user) {
         id: String(user._id),
         username: user.username,
         email: user.email,
+        businessName: user.businessName || '',
         profession: user.profession || 'General retailer',
     };
 }
@@ -23,15 +24,17 @@ router.post('/register', async (req, res) => {
     const username = typeof body.username === 'string' ? body.username.trim() : '';
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     const password = typeof body.password === 'string' ? body.password : '';
+    const businessName = typeof body.businessName === 'string' ? body.businessName.trim() : '';
     const profession = typeof body.profession === 'string' ? body.profession.trim() : '';
 
     if (username.length < 2 || username.length > 50) return res.status(400).json({ message: 'Username must be between 2 and 50 characters.' });
     if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ message: 'Enter a valid email address.' });
     if (password.length < 8 || password.length > 128) return res.status(400).json({ message: 'Password must be between 8 and 128 characters.' });
+    if (businessName.length < 2 || businessName.length > 100) return res.status(400).json({ message: 'Enter a business name between 2 and 100 characters.' });
     if (profession.length < 2 || profession.length > 80) return res.status(400).json({ message: 'Enter a business type between 2 and 80 characters.' });
 
     try {
-        const user = await User.create({ username, email, profession, password: await hashPassword(password) });
+        const user = await User.create({ username, email, businessName, profession, password: await hashPassword(password) });
         setSessionCookie(res, user._id);
         return res.status(201).json({ message: 'Account created.', user: publicUser(user) });
     } catch (error) {
@@ -75,7 +78,11 @@ router.get('/me', authenticate, async (req, res) => {
 });
 
 router.patch('/profile', authenticate, async (req, res) => {
+    const businessName = typeof req.body?.businessName === 'string' ? req.body.businessName.trim() : '';
     const profession = typeof req.body?.profession === 'string' ? req.body.profession.trim() : '';
+    if (businessName.length < 2 || businessName.length > 100) {
+        return res.status(400).json({ message: 'Enter a business name between 2 and 100 characters.' });
+    }
     if (profession.length < 2 || profession.length > 80) {
         return res.status(400).json({ message: 'Enter a business type between 2 and 80 characters.' });
     }
@@ -83,13 +90,13 @@ router.patch('/profile', authenticate, async (req, res) => {
     try {
         const user = await User.findByIdAndUpdate(
             req.userId,
-            { $set: { profession } },
+            { $set: { businessName, profession } },
             { new: true, runValidators: true },
         );
         if (!user) return res.status(401).json({ message: 'Please sign in to continue.' });
-        return res.json({ message: 'Business type updated.', user: publicUser(user) });
+        return res.json({ message: 'Business profile updated.', user: publicUser(user) });
     } catch {
-        return res.status(500).json({ message: 'Could not update your business type.' });
+        return res.status(500).json({ message: 'Could not update your business profile.' });
     }
 });
 

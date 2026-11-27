@@ -123,7 +123,7 @@ router.get('/daily-briefing', async (req, res) => {
         month: '2-digit',
         day: '2-digit',
     }).format(new Date());
-    const dayKey = `${localDay}-case-insensitive-products-v1`;
+    const dayKey = `${localDay}-business-name-v2`;
     const refresh = req.query.refresh === '1';
 
     try {
@@ -132,7 +132,7 @@ router.get('/daily-briefing', async (req, res) => {
             if (cached) return res.json({ briefing: cached.briefing, generatedAt: cached.generatedAt, cached: true });
         }
 
-        const merchant = await User.findById(req.userId).select('profession').lean();
+        const merchant = await User.findById(req.userId).select('businessName profession').lean();
         if (!merchant) return res.status(401).json({ message: 'Please sign in to continue.' });
 
         const [insights, inventory] = await Promise.all([
@@ -152,6 +152,7 @@ router.get('/daily-briefing', async (req, res) => {
         const briefing = await askBusinessAI(
             'Prepare today’s concise business briefing for this merchant. Return exactly three plain-text lines using these labels: Recent sales: (7-day sales, order and unit totals, and top product if available); Stock watch: (only items at or below their refill threshold, or say no stock alerts); Today’s action: (one practical action based on the available data). If data is missing, state that plainly and give a useful setup action. Separate recorded facts from suggested actions. Do not invent comparisons or trends. Do not add an introduction, Markdown, or extra sections.',
             {
+                businessName: merchant.businessName || '',
                 profession: merchant.profession || 'General retailer',
                 period: RANGE_LABELS['7d'],
                 ...insights.summary,
@@ -183,7 +184,7 @@ router.get('/daily-briefing', async (req, res) => {
 
 router.post('/promotion-plan', async (req, res) => {
     try {
-        const merchant = await User.findById(req.userId).select('profession').lean();
+        const merchant = await User.findById(req.userId).select('businessName profession').lean();
         if (!merchant) return res.status(401).json({ message: 'Please sign in to continue.' });
 
         const inventory = await InventoryItem.find({ merchantId: req.userId })
@@ -238,6 +239,7 @@ router.post('/promotion-plan', async (req, res) => {
         const plan = await askBusinessAI(
             'Create one stock-aware promotion campaign for the single product in eligibleProduct. This product has a safe stock cushion and is the slowest recent seller among eligible tracked products. Do not suggest a different product. Include a short reason using its recorded stock and 30-day unit sales, one practical campaign idea tailored to the merchant profession, a concise ready-to-use promotional message, and one simple success measure. Prefer low-cost ideas. Do not invent discounts, budgets, customer demographics, locations, or expected results, and do not promise sales growth. If there is not enough product or sales data, say so clearly.',
             {
+                businessName: merchant.businessName || '',
                 profession: merchant.profession || 'General retailer',
                 period: 'Last 30 days',
                 eligibleProduct: targetProduct,
@@ -263,7 +265,7 @@ router.post('/ask-ai', async (req, res) => {
     if (!isValidRange(range)) return res.status(400).json({ error: 'Choose 7d, 30d, 90d, or all for the date range.' });
 
     try {
-        const merchant = await User.findById(req.userId).select('profession');
+        const merchant = await User.findById(req.userId).select('businessName profession');
         if (!merchant) return res.status(401).json({ error: 'Please sign in to continue.' });
         const insights = await aggregateSalesInsights(req.userId, range);
         const inventory = await InventoryItem.find({ merchantId: req.userId })
@@ -337,6 +339,7 @@ router.post('/ask-ai', async (req, res) => {
             };
         });
         const answer = await askBusinessAI(question, {
+            businessName: merchant.businessName || '',
             profession: merchant.profession || 'General retailer',
             period: RANGE_LABELS[range],
             ...insights.summary,

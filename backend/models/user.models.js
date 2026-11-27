@@ -7,6 +7,13 @@ const userSchema = new mongoose.Schema({
         trim: true,
         unique: true,
     },
+    businessName: {
+        type: String,
+        trim: true,
+        minlength: 2,
+        maxlength: 100,
+        default: '',
+    },
     profession: {
         type: String,
         trim: true,

@@ -20,6 +20,7 @@ const miniChatMessages = document.getElementById('mini-chat-messages');
 const miniChatInput = document.getElementById('mini-chat-input');
 const miniChatSignIn = document.getElementById('mini-chat-signin');
 let merchantProfession = 'General retailer';
+let merchantBusinessName = '';
 let merchantAuthenticated = false;
 let miniConversation = [];
 let copilotConversation = [];
@@ -57,7 +58,7 @@ function resetMiniAssistant() {
     miniConversation = [];
     miniChatMessages.replaceChildren();
     addMiniChatMessage(merchantAuthenticated
-        ? `Hi! I'm Mitra. I can help with ${merchantProfession.toLowerCase()} sales, stock, and business questions.`
+        ? `Hi! I'm Mitra. I can help with sales, stock, and business questions for ${merchantBusinessName || 'your business'}.`
         : 'Hi! I can answer questions about your business once you sign in.', 'assistant');
     miniChatSignIn.hidden = merchantAuthenticated;
     document.getElementById('mini-assistant-note').innerText = merchantAuthenticated
@@ -199,10 +200,11 @@ function closeAuth() {
 }
 
 function updateBusinessSpecificAILabels() {
-    const placeholder = `Ask about your ${merchantProfession} business…`;
+    const businessLabel = merchantBusinessName || 'your business';
+    const placeholder = `Ask about ${businessLabel}…`;
     document.getElementById('question').placeholder = placeholder;
     miniChatInput.placeholder = placeholder;
-    document.getElementById('mini-assistant-scope').textContent = `Sales, stock, and promotion ideas for your ${merchantProfession} business`;
+    document.getElementById('mini-assistant-scope').textContent = `Sales, stock, and promotion ideas for ${businessLabel}`;
 }
 
 function setSignedIn(user) {
@@ -217,6 +219,7 @@ function setSignedIn(user) {
     document.getElementById('account-name').textContent = username;
     accountMenuTrigger.textContent = Array.from(username)[0]?.toLocaleUpperCase() || 'M';
     merchantProfession = user.profession || 'General retailer';
+    merchantBusinessName = user.businessName || '';
     resetCopilotConversation();
     updateBusinessSpecificAILabels();
     merchantAuthenticated = true;
@@ -262,6 +265,8 @@ window.addEventListener('popstate', () => setActivePage(getPageFromHash(), false
 
 function setSignedOut(message = '') {
     merchantAuthenticated = false;
+    merchantBusinessName = '';
+    merchantProfession = 'General retailer';
     resetCopilotConversation();
     miniAssistant.hidden = true;
     setMiniAssistantOpen(false);
@@ -331,10 +336,11 @@ function closeBusinessProfile() {
 
 function openBusinessProfile() {
     setAccountMenuOpen(false);
+    document.getElementById('profile-business-name').value = merchantBusinessName;
     document.getElementById('profile-profession').value = merchantProfession;
     document.getElementById('profile-message').innerText = '';
     profileModal.hidden = false;
-    document.getElementById('profile-profession').focus();
+    document.getElementById('profile-business-name').focus();
 }
 
 document.getElementById('edit-business-profile').addEventListener('click', openBusinessProfile);
@@ -351,15 +357,19 @@ document.getElementById('profile-form').addEventListener('submit', async (event)
         const response = await fetch('/api/users/profile', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ profession: document.getElementById('profile-profession').value }),
+            body: JSON.stringify({
+                businessName: document.getElementById('profile-business-name').value,
+                profession: document.getElementById('profile-profession').value,
+            }),
         });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Could not update your business type.');
+        if (!response.ok) throw new Error(data.message || 'Could not update your business profile.');
         merchantProfession = data.user.profession || 'General retailer';
+        merchantBusinessName = data.user.businessName || '';
         resetCopilotConversation();
         updateBusinessSpecificAILabels();
         const period = insightsRangeControl.options[insightsRangeControl.selectedIndex].text;
-        document.getElementById('ai-context-label').innerText = `Sales from ${period} · focused on your ${merchantProfession} business`;
+        document.getElementById('ai-context-label').innerText = `Sales from ${period} · focused on ${merchantBusinessName || 'your business'}`;
         resetMiniAssistant();
         document.getElementById('promotion-plan-output').hidden = true;
         document.getElementById('promotion-plan-output').textContent = '';
@@ -383,6 +393,7 @@ document.getElementById('register-form').addEventListener('submit', (event) => {
     submitAuth('register', {
         username: document.getElementById('register-username').value,
         email: document.getElementById('register-email').value,
+        businessName: document.getElementById('register-business-name').value,
         profession: document.getElementById('register-profession').value,
         password: document.getElementById('register-password').value,
     });
@@ -589,7 +600,7 @@ async function loadDashboard() {
         document.getElementById('sales-page-orders').innerText = data.summary.orders;
         document.getElementById('sales-page-units').innerText = data.summary.products;
         document.getElementById('trend-period-label').innerText = range === 'all' ? 'Monthly sales' : 'Daily sales';
-        document.getElementById('ai-context-label').innerText = `Sales from ${data.periodLabel || 'the selected period'} · focused on your ${merchantProfession} business`;
+        document.getElementById('ai-context-label').innerText = `Sales from ${data.periodLabel || 'the selected period'} · focused on ${merchantBusinessName || 'your business'}`;
         renderSalesChart(completeTrend(data.trend, range), range);
         renderTopProducts(data.topProducts);
     } catch (error) {
